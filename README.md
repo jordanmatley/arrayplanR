@@ -11,10 +11,12 @@ The goal of arrayplanR is to quantify performance of deployed receiver arrays an
 You can install the development version of arrayplanR from [GitHub](https://github.com/) with:
 
 ``` r
-remotes::install_github("jordanmatley/arrayplanR")
+remotes::install_github("jordanmatley/arrayplanR", build_vignettes = TRUE)
 library(arrayplanR)
+browseVignettes("arrayplanR")
 ```
 
 ## Contact
 
 Feel free to contact Jordan Matley (jordanmatley@gmail.com) directly for additional clarification or raw development files.
+

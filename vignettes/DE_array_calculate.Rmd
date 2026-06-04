@@ -113,7 +113,7 @@ water_column_position <- NULL
 study_area <- sf::st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
 
 #study_area2 = st_read("Study_area_cut.kml") #using a kml created directly in Google Earth using polygon function (this kml consisted of a smaller area of 'study_area')
-study_area2 <- sf::st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
+#study_area2 <- sf::st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
 
 #st_write(study_area, "Brewers_JM.geojson") #example of how to export a GeoJSON file to web application if desired (transform to correct crs first).
 
