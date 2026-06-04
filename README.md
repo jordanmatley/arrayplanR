@@ -15,5 +15,6 @@ remotes::install_github("jordanmatley/arrayplanR")
 library(arrayplanR)
 ```
 
+## Contact
 
-
+Feel free to contact Jordan Matley (jordanmatley@gmail.com) directly for additional clarification or raw development files.
