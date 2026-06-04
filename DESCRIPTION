@@ -35,3 +35,5 @@ Imports:
     sf,
     terra,
     tidyr
+URL: https://github.com/jordanmatley/arrayplanR
+BugReports: https://github.com/jordanmatley/arrayplanR/issues
