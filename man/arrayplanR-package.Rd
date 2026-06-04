@@ -8,6 +8,14 @@
 \description{
 This package aims at helping users evaluate existing and plan new acoustic telemetry receiver arrays based on detectability performance from several useful input parameters. The calculations are based on simple probability theory and consist of three main workflows: 1) DE_array_calculate - evaluates the performance of an acoustic receiver array using detection range testing data and predefined receiver locations; 2) DE_array_optimize_1overlap - optimizes acoustic receiver array configurations when receiver locations are not pre-designated based on simulated detections being recorded on only 1 receiver; 3) DE_array_optimize_3overlap - optimizes acoustic receiver array configurations when receiver locations are not pre-designated based on simulated detections being recorded on >1 receivers.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/jordanmatley/arrayplanR}
+  \item Report bugs at \url{https://github.com/jordanmatley/arrayplanR/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Jordan Matley \email{jordan.matley@example.com}
 
