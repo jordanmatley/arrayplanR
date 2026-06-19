@@ -31,7 +31,7 @@ theme_set(theme_bw())
 setwd("C:\\Users\\jorda\\OneDrive\\Research\\Flinders\\Research\\Other\\Array_DE\\R\\for_github")
 
 #######SET NECESSARY PARAMETERS#########
-cellsize=100 #Options: Numeric (in metres) (Default = 100). e.g., 100 = 100 x 100 m. Size of grids/cells used to calculate distances between receivers and cells (a smaller cell better for resolution but can slow computation)
+cellsize=50 #Options: Numeric (in metres) (Default = 100). e.g., 100 = 100 x 100 m. Size of grids/cells used to calculate distances between receivers and cells (a smaller cell better for resolution but can slow computation)
 max_distance=500 #Options: Numeric (in metres) (Default = 500). Distance from a receiver which you would expect ~0 (or low) detectability. Should be chosen based on range tests. Used to save computing time by ignoring areas not in range. 
 cell_prob_cutoff=0.1 #Options: Proportion (Default = 0.1). Equivalent to a x% chance of a transmission from a grid being heard (by n receivers). Should be chosen based on how stringent a user wants detection probabilities to be (e.g., only interested in grids with low vs high probability of detection).
 n.receiver_overlap=1 #Options: Numeric (Default = 1). Set how many receivers to detect transmission from a grid (e.g., broad-scale tracking = 1, fine-scale positioning = 3+).
@@ -48,6 +48,7 @@ study_area = st_read("BB_shp\\eaarlb_STT_250m_WaterMask_bbaypbay.shp") #using an
 #st_write(study_area, "Brewers_JM.geojson") #example of how to export a GeoJSON file to web application if desired (transform to correct crs first).
 
 study_area<-st_transform(study_area, crs = 3857) #convert to utm (easier to work with) - adjust crs as needed.
+#study_area2<-st_transform(study_area2, crs = 3857)
 
 study_area_grid <- study_area %>%  #turn study area into gridded area based on 'cell size'
   st_make_grid(cellsize = cellsize, what = "polygons",square=TRUE)
@@ -66,8 +67,13 @@ station_df_utm<-st_transform(station_df_dd, crs = 3857) #convert to metric crs
 #######OPTIONAL#########
 #instead of existing station locations, create station locations at regular spacing intervals to explore
 #grid_points <- st_make_grid(study_area2,cellsize=200, what = "centers")
-#grid_points <- st_sf(grid_points, crs = 3857) %>% st_intersection(study_area)
-#station_df_utm <- st_join(grid_points, station_df_utm %>% dplyr::select(Habitat,geometry),join = st_nearest_feature) %>% dplyr::select(-Name) %>% rename(geometry=grid_points) %>% mutate(station=row_number()) #allocate 'Habitat' of new station based on nearest 'Habitat'.
+#grid_points <- st_sf(grid_points, crs = 3857) %>% st_intersection(study_area2)
+#station_df_utm <- st_join(grid_points, station_df_utm %>%#allocate 'Habitat' of new station based on nearest 'Habitat'.
+#                            dplyr::select(Habitat,geometry),join = st_nearest_feature) %>% 
+#                            dplyr::select(!c(Description,Name)) %>% 
+#                            rename(geometry=grid_points) %>% 
+#                            mutate(station=row_number()) %>%
+#                            st_zm(drop = TRUE, what = "ZM") 
 #######OPTIONAL#########
 
 #3) range testing file (or can be loaded further below as a specific model if already known)

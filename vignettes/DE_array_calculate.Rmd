@@ -113,11 +113,12 @@ water_column_position <- NULL
 study_area <- sf::st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
 
 #study_area2 = st_read("Study_area_cut.kml") #using a kml created directly in Google Earth using polygon function (this kml consisted of a smaller area of 'study_area')
-#study_area2 <- sf::st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
+#study_area2 <- sf::st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR")) #or a gis file
 
 #st_write(study_area, "Brewers_JM.geojson") #example of how to export a GeoJSON file to web application if desired (transform to correct crs first).
 
 study_area<-st_transform(study_area, crs = 3857) #convert to utm (easier to work with) - adjust crs as needed.
+#study_area2<-st_transform(study_area2, crs = 3857)
 ```
 
 ### Create Analysis Grid
@@ -149,8 +150,13 @@ station_df_utm<-st_transform(station_df_dd, crs = 3857) #convert to metric crs
 #######OPTIONAL#########
 #instead of existing station locations, create station locations at regular spacing intervals to explore
 #grid_points <- st_make_grid(study_area2,cellsize=200, what = "centers")
-#grid_points <- st_sf(grid_points, crs = 3857) %>% st_intersection(study_area)
-#station_df_utm <- st_join(grid_points, station_df_utm %>% dplyr::select(Habitat,geometry),join = st_nearest_feature) %>% dplyr::select(-Name) %>% rename(geometry=grid_points) %>% mutate(station=row_number()) #allocate 'Habitat' of new station based on nearest 'Habitat'.
+#grid_points <- st_sf(grid_points, crs = 3857) %>% st_intersection(study_area2)
+#station_df_utm <- st_join(grid_points, station_df_utm %>% #allocate 'Habitat' of new station based on nearest 'Habitat'.
+#                            dplyr::select(Habitat,geometry),join = st_nearest_feature) %>% 
+#                            dplyr::select(!c(Description,Name)) %>% 
+#                            rename(geometry=grid_points) %>% 
+#                            mutate(station=row_number()) %>%
+#                            st_zm(drop = TRUE, what = "ZM") #no z dimension built in currently.
 #######OPTIONAL#########
 ```
 
