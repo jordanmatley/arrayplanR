@@ -55,10 +55,11 @@ library(tidyr)
 library(progressr)
 library(data.table)
 library(digest)
-library(proxy)
+library(proxy) 
 library(purrr)
 library(terra)
 library(exactextractr)
+library(ggspatial)
 
 theme_set(theme_bw())
 
@@ -110,10 +111,10 @@ water_column_position <- NULL
 ```{r}
 #gis file (e.g., .shp) or can be added manually from Google Earth
 #study_area = st_read("BB_shp\\eaarlb_STT_250m_WaterMask_bbaypbay.shp") #using an existing shp file for study area (with land barriers)
-study_area <- sf::st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
+study_area <- st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
 
 #study_area2 = st_read("Study_area_cut.kml") #using a kml created directly in Google Earth using polygon function (this kml consisted of a smaller area of 'study_area')
-#study_area2 <- sf::st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR")) #or a gis file
+#study_area2 <- st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR")) #or a gis file
 
 #st_write(study_area, "Brewers_JM.geojson") #example of how to export a GeoJSON file to web application if desired (transform to correct crs first).
 
@@ -138,9 +139,11 @@ study_area_grid <- st_as_sf(study_area_grid) %>%
 
 ```{r}
 #station_df<-read.csv("BB_array_df.csv")
-data(station_df)
+station_df <- read.csv(
+  system.file("extdata", "station_df.csv", package = "arrayplanR")
+)
 
-station_df_dd <- sf::st_as_sf(station_df, coords = c("lon_nad83", "lat_nad83"),crs = 4326) #crs of input locations
+station_df_dd <- st_as_sf(station_df, coords = c("lon_nad83", "lat_nad83"),crs = 4326) #crs of input locations
 
 station_df_utm<-st_transform(station_df_dd, crs = 3857) #convert to metric crs
 #in the above code, habitat is only associated via the station file, as this is often the approach taken and more simple. See other workflows "DE_array_optimize_1overlap" and DE_array_optimize_3overlap" to associate each cell with a habitat (either the same as the receiver, i.e. receiver-centric or based on cell habitat, i.e., cell-centric). For example, running affiliated code for 'study_area_grid' from the other workflows will create a more complete dataframe with those habitat values.  
@@ -151,12 +154,12 @@ station_df_utm<-st_transform(station_df_dd, crs = 3857) #convert to metric crs
 #instead of existing station locations, create station locations at regular spacing intervals to explore
 #grid_points <- st_make_grid(study_area2,cellsize=200, what = "centers")
 #grid_points <- st_sf(grid_points, crs = 3857) %>% st_intersection(study_area2)
-#station_df_utm <- st_join(grid_points, station_df_utm %>% #allocate 'Habitat' of new station based on nearest 'Habitat'.
-#                            dplyr::select(Habitat,geometry),join = st_nearest_feature) %>% 
-#                            dplyr::select(!c(Description,Name)) %>% 
+#station_df_utm <- st_join(grid_points, station_df_utm %>%#allocate 'Habitat' of new station based on nearest 'Habitat'.
+#                            select(Habitat,geometry),join = st_nearest_feature) %>% 
+#                            select(!c(Description,Name)) %>% 
 #                            rename(geometry=grid_points) %>% 
 #                            mutate(station=row_number()) %>%
-#                            st_zm(drop = TRUE, what = "ZM") #no z dimension built in currently.
+#                            st_zm(drop = TRUE, what = "ZM") 
 #######OPTIONAL#########
 ```
 
@@ -201,8 +204,9 @@ study_area_grid$bottom_depth_cell <- abs(
 
 ```{r}
 #range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). Can be loaded further below as a specific model if already known.
-data(range_df)
-
+range_df <- read.csv(
+  system.file("extdata", "range_df.csv", package = "arrayplanR")
+)
 head(range_df)
 
 ```
@@ -242,15 +246,20 @@ ggplot()+
 ```{r}
 
 dist_df <- compute_station_distances(
-  station_df = station_df_utm,
-  study_area_grid = study_area_grid,
-  study_area = study_area
-) #calculates distance of every grid from each designated receiver location
+  station_df = station_df_utm, 
+  study_area_grid, 
+  study_area,
+  max_distance,
+  cellsize,
+  distance_approach,
+  rel_depth_diff,
+  water_column_position,
+  range_model) #calculates distance of every grid from each designated receiver location
 
 head(dist_df)
 ##Habitat is locked to the receiver station (as this will be most common approach used - referred as **receiver-centric** detection range). It can be adjusted to be relative to the habitat of grids (i.e., **cell-centric** detection range), simply assign **Habitat** relative to `cell_id` (by merging an existing file or see optimize workflows for example code) and recalculate `prop_detecs`: 
 #dist_df$prop_detecs<-predict(range_model, newdata = dist_df, type="response") 
-#dist_df$prop_detecs<-<-ifelse(dist_df$landinway=="TRUE",0,dist_df$prop_detecs)
+#dist_df$prop_detecs <- ifelse(dist_df$landinway, 0, dist_df$prop_detecs)
 #note that `distance_approach` parameters have already been accounted for and do not need to be applied again.
 #Name is left empty in case user wants to use it for other qualifications
 ```
@@ -260,9 +269,9 @@ head(dist_df)
 
 ```{r}
 dist_df_prob <- compute_cell_prob(
-  dist_df = dist_df,
-  study_area_grid = study_area_grid,
-  n.receiver_overlap = n.receiver_overlap
+  dist_df,
+  study_area_grid,
+  n.receiver_overlap
 )
 
 head(dist_df_prob)
@@ -316,7 +325,7 @@ dist_df_prob %>% filter(prob_cell_all>cell_prob_cutoff) %>% #toggle to show cut-
   ggtitle(paste("n.receiver_overlap = ",n.receiver_overlap))+
   scale_fill_viridis_c(breaks=seq(0, 1, 0.25),limits=c(0,1),option = "viridis",alpha=1)+
   theme(panel.background = element_rect(fill = "grey", colour = "black"),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),legend.text = element_text(size=16),legend.title = element_text(size=18),legend.key.size = unit(1.25,"line"))+
-  ggspatial::annotation_scale(line_width = 2, height = unit(0.5, "cm"),location="tr")
+  annotation_scale(line_width = 2, height = unit(0.5, "cm"),location="tr")
 ```
 
 ---

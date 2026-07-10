@@ -3,7 +3,15 @@
 
 ###FUNCTION 1/2
 #calculate distance of every grid from each designated receiver location
-compute_station_distances <- function(station_df, study_area_grid, study_area) {
+compute_station_distances <- function(station_df, 
+                                      study_area_grid, 
+                                      study_area,
+                                      max_distance,
+                                      cellsize,
+                                      distance_approach="horizontal",
+                                      rel_depth_diff=NULL,
+                                      water_column_position=NULL,
+                                      range_model)   {
   
   if (max_distance <= cellsize) {
     stop("Error: your grid size (cellsize) is larger than max_distance.")
@@ -184,7 +192,10 @@ compute_station_distances <- function(station_df, study_area_grid, study_area) {
 
 ###FUNCTION 2/2
 #calculate receiver-cell probabilities based on designated n.receiver_overlap
-compute_cell_prob <- function(dist_df, study_area_grid, n.receiver_overlap, progress = TRUE) {
+compute_cell_prob <- function(dist_df, 
+                              study_area_grid, 
+                              n.receiver_overlap, 
+                              progress = TRUE) {
 
   #initial checks
   stopifnot("cell_id" %in% names(dist_df))
@@ -243,7 +254,7 @@ compute_cell_prob <- function(dist_df, study_area_grid, n.receiver_overlap, prog
     distinct(cell_id, .keep_all = TRUE)
   dist_df_prob_joined <- study_grid_unique %>%
     left_join(dist_df_prob, by = "cell_id") %>%
-    mutate(prob_cell_all = tidyr::replace_na(prob_cell_all, 0))
+    mutate(prob_cell_all = replace_na(prob_cell_all, 0))
 }
 
 
@@ -251,7 +262,13 @@ compute_cell_prob <- function(dist_df, study_area_grid, n.receiver_overlap, prog
 
 ###FUNCTION 1/4
 #calculate distance of every grid from every other possible receiver location
-compute_grid_distances1 <- function(study_area_grid, study_area,distance_approach = NULL) {
+compute_grid_distances1 <- function(study_area_grid, 
+                                    study_area,
+                                    max_distance,
+                                    cellsize,
+                                    distance_approach="horizontal",
+                                    rel_depth_diff=NULL,
+                                    water_column_position=NULL) {
   handlers("txtprogressbar")
   
   #initial checks
@@ -279,7 +296,7 @@ compute_grid_distances1 <- function(study_area_grid, study_area,distance_approac
   to_coords   <- st_coordinates(cell_id$centroid)
   
   message("Calculating all relevant receiver-cell distances - this may take a while depending on cellsize")
-  distmat <- as.matrix(proxy::dist(from_coords, to_coords))
+  distmat <- as.matrix(dist(from_coords, to_coords))
   
   # Apply max_distance filter
   if (!is.null(max_distance)) {
@@ -311,7 +328,7 @@ compute_grid_distances1 <- function(study_area_grid, study_area,distance_approac
     st_cast(study_area, "MULTILINESTRING")
   }, error = function(e) NULL)
 
-  data.table::setDT(dt) #add during package creation
+  #data.table::setDT(dt) #add during package creation
   dt[, landinway := FALSE]
   
   if (!is.null(coast_line) && length(coast_line) > 0 && nrow(dt) > 0) {
@@ -345,8 +362,8 @@ compute_grid_distances1 <- function(study_area_grid, study_area,distance_approac
   }
   dist_df_pre<-as.data.frame(dt)
   #Merge relevant study area habitat and grid information. In this example ('receiver-centric'), receivers and their buffer have the same habitat). Below can be altered for 'cell-centric' as needed
-  dist_df<-dist_df_pre %>% left_join(study_area_grid %>% dplyr::select(cell_id,Habitat,centroid),by=c("station"="cell_id")) %>% rename(station_loc=centroid) %>% dplyr::select(-geometry) #centroid/station_loc relative to station
-  dist_df<-dist_df %>% left_join(study_area_grid %>% dplyr::select(cell_id,centroid,geometry),by=c("cell_id"="cell_id")) #centroid/geometry relative to cell_id grid 
+  dist_df<-dist_df_pre %>% left_join(study_area_grid %>% select(cell_id,Habitat,centroid),by=c("station"="cell_id")) %>% rename(station_loc=centroid) %>% select(-geometry) #centroid/station_loc relative to station
+  dist_df<-dist_df %>% left_join(study_area_grid %>% select(cell_id,centroid,geometry),by=c("cell_id"="cell_id")) #centroid/geometry relative to cell_id grid 
   
 ######    
   #if using bathymetry - need to add depth of station (from background study_area grids)
@@ -370,34 +387,34 @@ compute_grid_distances1 <- function(study_area_grid, study_area,distance_approac
   # ==========================================================
   
   #if using a relative depth approach (because tag-receiver is not necessarily horizontal) - assumes receiver deployed on bottom
-  if(distance_approach=="relative_static" & !is.null(rel_depth_diff)) { #using one static relative depth
-    
-    dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(rel_depth_diff)^2) #For simplicity this is overwriting previous dist_to_receiver but check not a problem after (and on replots)
-    #recalculate dist_to_receiver...
-    dist_df$prop_detecs <- predict(range_model, newdata = dist_df, type = "response") #set probability to 0 for receiver-grid combinations that have a land barrier
-    dist_df$prop_detecs<-ifelse(dist_df$landinway=="TRUE",0,dist_df$prop_detecs)
-    
-  } else if (distance_approach=="relative_dynamic" & "bottom_depth_cell" %in% names(dist_df) & !is.null(water_column_position)) { #using bathymetry
-    
-    if(water_column_position=="surface"){
-      dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(dist_df$station_depth)^2)
-    } else if(water_column_position=="midwater"){
-      dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(dist_df$station_depth - (dist_df$bottom_depth_cell/2))^2)
-    } else if(water_column_position=="bottom"){
-      dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(dist_df$station_depth - dist_df$bottom_depth_cell)^2)
-    } else{
-      stop("Error - distance_approach not appropriately organized")
+  if (is.null(distance_approach) ||
+      is.na(distance_approach) ||
+      distance_approach == "horizontal") {
+    dist_df$prop_detecs <- predict(range_model,
+                                   newdata = dist_df,
+                                   type = "response")
+    dist_df$prop_detecs <- ifelse(dist_df$landinway, 0, dist_df$prop_detecs)
+  } else if (distance_approach == "relative_static") {
+    if (is.null(rel_depth_diff)) {
+      stop("'rel_depth_diff' must be supplied when distance_approach = 'relative_static'.")
     }
-    #recalculate dist_to_receiver...
-    dist_df$prop_detecs <- predict(range_model, newdata = dist_df, type = "response")
-    dist_df$prop_detecs<-ifelse(dist_df$landinway=="TRUE",0,dist_df$prop_detecs)
+    dist_df$dist_to_receiver <-
+      sqrt(dist_df$dist_to_receiver^2 + abs(rel_depth_diff)^2)
+    dist_df$prop_detecs <- predict(range_model,
+                                   newdata = dist_df,
+                                   type = "response")
+    dist_df$prop_detecs <- ifelse(dist_df$landinway, 0, dist_df$prop_detecs)
+  } else if (distance_approach == "relative_dynamic") {
+    if (!("bottom_depth_cell" %in% names(dist_df))) {
+      stop("'bottom_depth_cell' is required for distance_approach = 'relative_dynamic'.")
+    }
+    if (is.null(water_column_position)) {
+      stop("'water_column_position' must be supplied when distance_approach = 'relative_dynamic'.")
+    }
     
-  }  else if (is.na(distance_approach)|is.null(distance_approach)|distance_approach=="horizontal"){
     dist_df$prop_detecs <- predict(range_model, newdata = dist_df, type = "response")
-    dist_df$prop_detecs<-ifelse(dist_df$landinway=="TRUE",0,dist_df$prop_detecs)
-  } else{
-    stop("Error - distance_approach not appropriately organized")
-  }
+    dist_df$prop_detecs <- ifelse(dist_df$landinway, 0, dist_df$prop_detecs)  
+    }
 #########   
   
   return(dist_df)
@@ -430,12 +447,27 @@ compute_cell_prob_optim <- function(p_vec, thr) {
 
 ###FUNCTION 3/4
 #Estimate optimized receiver based on 1 n.receiver_overlap
-optimize_1receivers <- function(dist_df, study_area_grid, hab_nrec_alloc = NULL) {
+optimize_1receivers <- function(dist_df, 
+                                study_area_grid, 
+                                hab_nrec_alloc = NULL,
+                                seed,
+                                starting_loc=NULL,
+                                study_area,
+                                optim_method="all_possible",
+                                min_rec_distance,
+                                max_i_iterations,
+                                subsampl_perc_i=100,
+                                n.receiver_overlap=1,
+                                cell_prob_cutoff,
+                                cellsize,
+                                max_distance,
+                                optim_metric="sum_prob_cells",
+                                nrecs) {
   
   #creating temporary folder for potential memory issues (not tested for MacOS)
-  newtemp <- "C:/temp_R"
-  dir.create(newtemp, showWarnings = FALSE)
-  Sys.setenv(TMP = newtemp, TEMP = newtemp)
+  #newtemp <- "C:/temp_R"
+  #dir.create(newtemp, showWarnings = FALSE)
+  #Sys.setenv(TMP = newtemp, TEMP = newtemp)
   
   message(paste("Identifying estimated optimized receiver locations based on: ", max_i_iterations,
                 " i iterations. Each i iteration will include ~",
@@ -464,8 +496,8 @@ optimize_1receivers <- function(dist_df, study_area_grid, hab_nrec_alloc = NULL)
     dist_df2 <- dist_df[station != starting_station_number]
     dist_df1$station_loc<-starting_loc_proj
     dist_df1$dist_to_receiver <- round(mapply(function(a, b) st_distance(a, b),dist_df1$station_loc,dist_df1$centroid),1)
-    dist_df$prop_detecs <- predict(range_model, newdata = dist_df, type = "response")
-    dist_df1$prop_detecs<-ifelse(dist_df1$landinway=="TRUE",0,dist_df1$prop_detecs)
+    dist_df1$prop_detecs <- predict(range_model, newdata = dist_df1, type = "response")
+    dist_df1$prop_detecs <- ifelse(dist_df1$landinway, 0, dist_df1$prop_detecs)
     dist_df<-rbind(dist_df1,dist_df2)
     
   }
@@ -539,7 +571,7 @@ optimize_1receivers <- function(dist_df, study_area_grid, hab_nrec_alloc = NULL)
   used_keys <- new.env(parent = emptyenv())
   
   with_progress({
-    progressr::handlers("cli")
+    handlers("cli")
     p <- progressor(steps = max_i_iterations)
     
     loop_i_blank <- vector("list", max_i_iterations)
@@ -582,7 +614,7 @@ optimize_1receivers <- function(dist_df, study_area_grid, hab_nrec_alloc = NULL)
         if (length(unique(new_stations)) != nrecs) next
         
         # Fast hashed key based on sorted station vector
-        stations_key <- digest::digest(
+        stations_key <- digest(
           paste0(new_stations, collapse = ","),
           algo = "xxhash64",
           serialize = FALSE
@@ -694,7 +726,11 @@ optimize_1receivers <- function(dist_df, study_area_grid, hab_nrec_alloc = NULL)
 ###FUNCTION 4/4
 #Plotting function
 #duplicate
-plot_output_prep <- function(dist_df, study_area_grid, stations_to_use, n.receiver_overlap) {
+plot_output_prep <- function(dist_df, 
+                             study_area_grid, 
+                             stations_to_use, 
+                             n.receiver_overlap=1) {
+  
   # Assumes compute_cell_prob_optim(p_vec, thr) exists in the environment
   dist.df <- as.data.table(dist_df)
   
@@ -732,7 +768,10 @@ plot_output_prep <- function(dist_df, study_area_grid, stations_to_use, n.receiv
 
 ###FUNCTION 1/5
 #calculate distance of every grid from each designated receiver location
-compute_grid_distances3 <- function(station_df, study_area_buffer, study_area_grid, study_area) {
+compute_grid_distances3 <- function(station_df, 
+                                    study_area_buffer, 
+                                    study_area_grid, 
+                                    study_area) {
   
   #initial checks
   target_crs <- st_crs(study_area)
@@ -748,7 +787,7 @@ compute_grid_distances3 <- function(station_df, study_area_buffer, study_area_gr
   
   #handlers("txtprogressbar")  # progress bar
   result_list <- with_progress({
-    progressr::handlers("cli")
+    handlers("cli")
     p <- progressor(along = station_split)
     
     lapply(station_split, function(station_df_loop) {
@@ -762,16 +801,16 @@ compute_grid_distances3 <- function(station_df, study_area_buffer, study_area_gr
       suppressWarnings(
         study_buffer_loop <- study_area_buffer %>%
           #dplyr::filter(station == station_i) %>%
-          dplyr::filter(hex_id == station_i) %>% #with new hex_id fix
-          st_intersection(study_area_grid %>% dplyr::select(-Name) %>% rename(background_grid_habitat=Habitat))
+          filter(hex_id == station_i) %>% #with new hex_id fix
+          st_intersection(study_area_grid %>% select(-Name) %>% rename(background_grid_habitat=Habitat))
       )
       #centroid = background cell_id centroid
       #geometry = geometry of used cell_id (may be partially used)
 
-      ggplot()+
-        geom_sf(data = study_area,fill="white")+
-        geom_sf(data=study_buffer_loop,aes(geometry=geometry))+
-        geom_sf(data=study_buffer_loop,aes(geometry=centroid))
+      #ggplot()+
+      #  geom_sf(data = study_area,fill="white")+
+      #  geom_sf(data=study_buffer_loop,aes(geometry=geometry))+
+      #  geom_sf(data=study_buffer_loop,aes(geometry=centroid))
       
       #Okay to use centroids where grid only partially used
       
@@ -783,11 +822,11 @@ compute_grid_distances3 <- function(station_df, study_area_buffer, study_area_gr
       ]
       centroids_sfc <- st_geometry(study_buffer_loop$centroid)
       
-      ggplot()+
-        geom_sf(data = study_area,fill="white")+
-        geom_sf(data=study_buffer_loop,aes(geometry=geometry))+ #cell_id geometry
-        geom_sf_text(data=study_buffer_loop,aes(geometry=centroid,label=cell_id))+ #cell_id centroid
-        geom_sf(data=station_geom,colour="red") #station
+      #ggplot()+
+      #  geom_sf(data = study_area,fill="white")+
+      #  geom_sf(data=study_buffer_loop,aes(geometry=geometry))+ #cell_id geometry
+      #  geom_sf_text(data=study_buffer_loop,aes(geometry=centroid,label=cell_id))+ #cell_id centroid
+      #  geom_sf(data=station_geom,colour="red") #station
       
       # Compute distances
       dist_to_receiver <- as.numeric(st_distance(centroids_sfc, station_geom)) #background cell centroids and hex_id station loc
@@ -815,7 +854,7 @@ compute_grid_distances3 <- function(station_df, study_area_buffer, study_area_gr
   
   # Drop empty entries and merge
   result_list <- Filter(Negate(is.null), result_list)
-  dplyr::bind_rows(result_list)
+  bind_rows(result_list)
 }
 
 ###FUNCTION 2/5
@@ -845,14 +884,34 @@ compute_cell_prob_optim <- function(p_vec, thr) {
 
 ###FUNCTION 3/5
 #Estimate optimized receiver based on >1 n.receiver_overlap
-optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_loc = NULL) {
+optimize_3receivers <- function(study_area_grid, 
+                                hab_nrec_alloc = NULL,
+                                starting_loc = NULL,
+                                seed,
+                                study_area_buffer,
+                                rec_dist_iterations,
+                                cellsize,
+                                min_rec_distance,
+                                max_distance,
+                                study_area2,
+                                optim_method="all_possible",
+                                square_array_config=FALSE,
+                                study_area,
+                                distance_approach="horizontal",
+                                rel_depth_diff=NULL,
+                                water_column_position=NULL,
+                                range_model,
+                                cell_prob_cutoff,
+                                n.receiver_overlap=3,
+                                nrecs,
+                                rec_dist_variation="static") {
   
   message("First, calculating receiver-cell distances...")
   
   #For temporary storage (not tested for MacOS)
-  newtemp <- "C:/temp_R"
-  dir.create(newtemp, showWarnings = FALSE)
-  Sys.setenv(TMP = newtemp, TEMP = newtemp)
+  #newtemp <- "C:/temp_R"
+  #dir.create(newtemp, showWarnings = FALSE)
+  #Sys.setenv(TMP = newtemp, TEMP = newtemp)
   
   set.seed(seed)
   options(datatable.verbose = FALSE)
@@ -860,7 +919,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
   
   if(is.null(study_area_grid$Habitat)){study_area_grid$Habitat="no_habitat"}
   
-  dt_unique_grid <-study_area_grid %>% dplyr::select(cell_id,geometry,Habitat,centroid) %>% rename(station=cell_id,station_loc=centroid)
+  dt_unique_grid <-study_area_grid %>% select(cell_id,geometry,Habitat,centroid) %>% rename(station=cell_id,station_loc=centroid)
   m2_possible_val <- sum(as.numeric(st_area(dt_unique_grid %>% filter(!is.na(Habitat))))) #should be static so precompute
   
   if (!is.null(starting_loc)){ 
@@ -920,7 +979,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
         # Clip hex grid to original study area
         hex_locs <- hex_locs %>% st_intersection(study_area2) 
         hex_locs<-hex_locs %>% st_intersection(study_area) #in case additional points still exist
-        hex_locs <- hex_locs %>% dplyr::select(geometry)
+        hex_locs <- hex_locs %>% select(geometry)
         hex_locs$hex_id <- seq_len(nrow(hex_locs))
         
         #associate station ID
@@ -948,13 +1007,13 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
       if (nrecs > length(hex_stations_all)) stop("nrecs greater than available stations")
       
       #this moves point to grid centroid
-      #hex_locs_i<-st_join(hex_locs,dt_unique_grid,join = st_intersects,left = TRUE, largest = TRUE) %>% st_set_geometry("centroid") %>% dplyr::select(-geometry)
+      #hex_locs_i<-st_join(hex_locs,dt_unique_grid,join = st_intersects,left = TRUE, largest = TRUE) %>% st_set_geometry("centroid") %>% select(-geometry)
       #hex_locs_i<-hex_locs_i %>% filter(!is.na(Habitat))
       #this keeps at specific location (and may skews some distances between grids,especially with larger grid sizes - can also switch study_area_grid_pre in "DE_array_optimize_3overlap.r" square to TRUE/FALSE to improve)
-      #hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% dplyr::select(-station_loc)) #%>% rename(Habitat_station=Habitat) 
-      hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% dplyr::select(!c(station_loc,station))) #do not need station i don't think and it confuses further down
+      #hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% select(-station_loc)) #%>% rename(Habitat_station=Habitat) 
+      hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% select(!c(station_loc,station))) #do not need station i don't think and it confuses further down
       hex_locs_i<-hex_locs_i %>% filter(!is.na(Habitat)) #can have diff hex_id's in same station ID (which is from background grid cell_id - potentially problematic...need to make sure hex_id is actual new stationID because it is unique...should only be using station here in relation to what habitat it is and where it is from...)
-      head(hex_locs_i) #geometry is hex location
+      #head(hex_locs_i) #geometry is hex location
       
       if (!is.null(starting_loc)) {
         starting_station_number_pre<-hex_locs_i %>% filter(hex_id %in% starting_station_number_pre)
@@ -997,7 +1056,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
         dist_df <- merge(dist_df,station_lookup[, c("station", "station_depth")],
                          by = "station",
                          all.x = TRUE)
-        head(dist_df)
+        #head(dist_df)
       }
       
       # ==========================================================
@@ -1005,27 +1064,45 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
       # ==========================================================
       #if using a relative depth approach (because tag-receiver is not necessarily horizontal) - assumes receiver deployed on bottom
       
-      if(distance_approach=="relative_static" & !is.null(rel_depth_diff)) { #using one static relative depth
-        
-        dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(rel_depth_diff)^2) #For simplicity this is overwriting previous dist_to_receiver but check not a problem after (and on replots)
-        
-      } else if (distance_approach=="relative_dynamic" & "bottom_depth_cell" %in% names(dist_df) & !is.null(water_column_position)) { #using bathymetry
-        
-        if(water_column_position=="surface"){
-          dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(dist_df$station_depth)^2)
-        } else if(water_column_position=="midwater"){
-          dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(dist_df$station_depth - (dist_df$bottom_depth_cell/2))^2)
-        } else if(water_column_position=="bottom"){
-          dist_df$dist_to_receiver<-sqrt(dist_df$dist_to_receiver^2+abs(dist_df$station_depth - dist_df$bottom_depth_cell)^2)
-        } else{
-          stop("Error - distance_approach not appropriately organized")
-        }
-        
-      }  else if (is.na(distance_approach)|is.null(distance_approach)|distance_approach=="horizontal"){
-        
-      } else{
-        stop("Error - distance_approach not appropriately organized")
+      if (is.null(distance_approach) || is.na(distance_approach)) {
+        distance_approach <- "horizontal"
       }
+      if (distance_approach == "horizontal") {
+        # No adjustment required
+      } else if (distance_approach == "relative_static") {
+        if (is.null(rel_depth_diff)) {
+          stop("'rel_depth_diff' must be supplied when distance_approach = 'relative_static'.")
+        }
+        dist_df$dist_to_receiver <-
+          sqrt(dist_df$dist_to_receiver^2 + abs(rel_depth_diff)^2)
+      } else if (distance_approach == "relative_dynamic") {
+        if (!("bottom_depth_cell" %in% names(dist_df))) {
+          stop("'bottom_depth_cell' is required when distance_approach = 'relative_dynamic'.")
+        }
+        if (is.null(water_column_position)) {
+          stop("'water_column_position' must be supplied when distance_approach = 'relative_dynamic'.")
+        }
+        if (water_column_position == "surface") {
+          dist_df$dist_to_receiver <-
+            sqrt(dist_df$dist_to_receiver^2 +
+                   abs(dist_df$station_depth)^2)
+        } else if (water_column_position == "midwater") {
+          dist_df$dist_to_receiver <-
+            sqrt(dist_df$dist_to_receiver^2 +
+                   abs(dist_df$station_depth -
+                         (dist_df$bottom_depth_cell / 2))^2)
+        } else if (water_column_position == "bottom") {
+          dist_df$dist_to_receiver <-
+            sqrt(dist_df$dist_to_receiver^2 +
+                   abs(dist_df$station_depth -
+                         dist_df$bottom_depth_cell)^2)
+        } else {
+          stop("'water_column_position' must be one of 'surface', 'midwater', or 'bottom'.")
+        }
+      } else {
+        stop("'distance_approach' must be one of 'horizontal', 'relative_static', or 'relative_dynamic'.")
+      }
+      
       #########    
       
       #calculate whole array for each iteration to estimate average coverage to compare across
@@ -1114,7 +1191,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
         #Compute detection probabilities
         dt_sub <- dt[, .(station, cell_id, prop_detecs, Habitat, centroid)]
         dt_sel <- dt_sub[station %in% new_stations]
-        head(dt_sel)
+        #head(dt_sel)
         
         dt_prop_list <- dt_sel[, .(prop_vec = list(prop_detecs)), by = cell_id]
         dt_prop_list[, prob_cell_all := vapply(prop_vec, function(v)
@@ -1178,7 +1255,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
         Hab_keep_track<-near_stations_i %>% mutate(rec_distance_iteration = hexsize,focal_station=station_this_i)
         Hab_keep_track$h_iteration<-h # i think i need this
         Hab_keep_track$i_iteration<-i
-        head(Hab_keep_track)
+        #head(Hab_keep_track)
         Hab_loop_i_blank[[i]]<-Hab_keep_track
         
         any_valid_i <- TRUE  # mark at least one i iteration successful
@@ -1248,8 +1325,8 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
   loop_hi_to_subset$k_iteration<-NA
   
   ###################################################################
-  ###main block if multiple receiver distances option (rec_dist_variation=TRUE) is selected
-  if (rec_dist_variation == "TRUE") {
+  ###main block if multiple receiver distances option (rec_dist_variation="variable") is selected
+  if (rec_dist_variation == "variable") {
     
     #A k iteration is a single row from the main summary of all configuration performances (loop_hi_to_subet). A k iteration goes through each one and works through j iterations, which are different mixed receiver distance combinations to be tested. For example, if there are 9 receivers across 3 habitats (3 receivers in each), each j iteration will freeze locations of receivers in 2 habitats and cycle through new receiver distance combinations (selecting new locations in different sized grids that are closest to the ones they are replacing - to ensure they remain in the general area). To ensure stability as much as possible (i.e., keeping optimal spread angles), only one habitat is cycled at a time (instead of two in the above example) - additional investigations are suggested with the interactive web application. 
     
@@ -1272,7 +1349,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
           p(sprintf("k = %d / %d", k, length(loop_hi_mainHAB_split)))  # update FIRST
           
           loop_k_array <- loop_hi_mainHAB_split[[k]] #k=4
-          head(loop_k_array)
+          #head(loop_k_array)
           
           if (is.na(loop_k_array$n_habitats[1]) || loop_k_array$n_habitats[1] <= 1) next #not needed if only 1 habitat or NA
           
@@ -1546,8 +1623,8 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
               compute_grid_distances3(
                 station_df = loop_j_array,
                 study_area_buffer = study_area_buffer1,
-                study_area_grid = study_area_grid,
-                study_area = study_area) 
+                study_area_grid,
+                study_area) 
             })
             #}) #silence progress bar within function
             #dist_df_hab<-dist_df_hab %>% rename(station=hex_id) #to match up with later and because these are stations really
@@ -1569,34 +1646,54 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
               dist_df_hab <- merge(dist_df_hab,station_lookup_hab[, c("station", "station_depth")],
                                    by = "station",
                                    all.x = TRUE)
-              head(dist_df_hab)
+              #head(dist_df_hab)
             }
             
+            
+            # ==========================================================
+            # FOR DISTANCE APPROACHES
+            # ==========================================================
             #if using a relative depth approach (because tag-receiver is not necessarily horizontal) - assumes receiver deployed on bottom
             #add TO OTHER FUNCTIONS AND DEFINITIONS
-            if(distance_approach=="relative_static" & !is.null(rel_depth_diff)) { #using one static relative depth
-              
-              dist_df_hab$dist_to_receiver<-sqrt(dist_df_hab$dist_to_receiver^2+abs(rel_depth_diff)^2) #For simplicity this is overwriting previous dist_to_receiver but check not a problem after (and on replots)
-              
-            } else if (distance_approach=="relative_dynamic" & "bottom_depth_cell" %in% names(dist_df_hab) & !is.null(water_column_position)) { #using bathymetry
-              ############
-              #need to add bathymetry to dist_df_hab still
-              ############
-              if(water_column_position=="surface"){
-                dist_df_hab$dist_to_receiver<-sqrt(dist_df_hab$dist_to_receiver^2+abs(dist_df_hab$station_depth)^2)
-              } else if(water_column_position=="midwater"){
-                dist_df_hab$dist_to_receiver<-sqrt(dist_df_hab$dist_to_receiver^2+abs(dist_df_hab$station_depth - (dist_df_hab$bottom_depth_cell/2))^2)
-              } else if(water_column_position=="bottom"){
-                dist_df_hab$dist_to_receiver<-sqrt(dist_df_hab$dist_to_receiver^2+abs(dist_df_hab$station_depth - dist_df_hab$bottom_depth_cell)^2)
-              } else{
-                stop("Error - distance_approach not appropriately organized")
-              }
-              
-            }  else if (is.na(distance_approach)|is.null(distance_approach)|distance_approach=="horizontal"){
-              
-            } else{
-              stop("Error - distance_approach not appropriately organized")
+            if (is.null(distance_approach) || is.na(distance_approach)) {
+              distance_approach <- "horizontal"
             }
+            if (distance_approach == "horizontal") {
+              # No adjustment required
+            } else if (distance_approach == "relative_static") {
+              if (is.null(rel_depth_diff)) {
+                stop("'rel_depth_diff' must be supplied when distance_approach = 'relative_static'.")
+              }
+              dist_df$dist_to_receiver <-
+                sqrt(dist_df$dist_to_receiver^2 + abs(rel_depth_diff)^2)
+            } else if (distance_approach == "relative_dynamic") {
+              if (!("bottom_depth_cell" %in% names(dist_df))) {
+                stop("'bottom_depth_cell' is required when distance_approach = 'relative_dynamic'.")
+              }
+              if (is.null(water_column_position)) {
+                stop("'water_column_position' must be supplied when distance_approach = 'relative_dynamic'.")
+              }
+              if (water_column_position == "surface") {
+                dist_df$dist_to_receiver <-
+                  sqrt(dist_df$dist_to_receiver^2 +
+                         abs(dist_df$station_depth)^2)
+              } else if (water_column_position == "midwater") {
+                dist_df$dist_to_receiver <-
+                  sqrt(dist_df$dist_to_receiver^2 +
+                         abs(dist_df$station_depth -
+                               (dist_df$bottom_depth_cell / 2))^2)
+              } else if (water_column_position == "bottom") {
+                dist_df$dist_to_receiver <-
+                  sqrt(dist_df$dist_to_receiver^2 +
+                         abs(dist_df$station_depth -
+                               dist_df$bottom_depth_cell)^2)
+              } else {
+                stop("'water_column_position' must be one of 'surface', 'midwater', or 'bottom'.")
+              }
+            } else {
+              stop("'distance_approach' must be one of 'horizontal', 'relative_static', or 'relative_dynamic'.")
+            }
+            
             ####################    
             
 
@@ -1683,7 +1780,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
           }
           
           #suppressWarnings({
-          array_configs_list <- progressr::without_progress(lapply(config_split, process_config))
+          array_configs_list <- without_progress(lapply(config_split, process_config))
           #})
           #array_configs_list <- progressr::without_progress({
           #  options(progressr.enable = FALSE)
@@ -1725,7 +1822,7 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
       
       
       ###################################################################
-      ###main block if multiple receiver distances option (rec_dist_variation=TRUE) is selected (above)
+      ###main block if multiple receiver distances option (rec_dist_variation="variable") is selected (above)
     }
     else{ #statement in case there are no valid hi_iterations
       list(
@@ -1748,7 +1845,14 @@ optimize_3receivers <- function(study_area_grid, hab_nrec_alloc = NULL,starting_
 } #end of function   
 
 ###FUNCTION 4/5
-prepare_dist_df_best <- function(loop_hi_subset, dist_df_iteration, array_size_configs_all, study_area_grid, study_area, max_distance, range_model, starting_loc = NULL) {
+prepare_dist_df_best <- function(loop_hi_subset, 
+                                 dist_df_iteration, 
+                                 array_size_configs_all, 
+                                 study_area_grid, 
+                                 study_area, 
+                                 max_distance, 
+                                 range_model, 
+                                 starting_loc = NULL) {
   
   if (any(is.na(loop_hi_subset$status) | 
           loop_hi_subset$status != "mixed_distances_iteration")) {
@@ -1758,14 +1862,14 @@ prepare_dist_df_best <- function(loop_hi_subset, dist_df_iteration, array_size_c
     dist_df_best <- dist_df_iteration[[as.numeric(loop_hi_subset$h_iteration)]]
     
   } else {
-    message("Warning: since rec_dist_variation=TRUE, the provided configuration may not have optimal spread angles (compared to rec_dist_variation=FALSE). If produced layout is not functional, it is suggested to use the next best configuration (which may be a loop_hi_to_subset row where status is not derived from a mixed_distances_iteration).")
+    message("Warning: since rec_dist_variation=variable, the provided configuration may not have optimal spread angles (compared to rec_dist_variation=static). If produced layout is not functional, it is suggested to use the next best configuration (which may be a loop_hi_to_subset row where status is not derived from a mixed_distances_iteration).")
     
     best_mixed_array <- array_size_configs_all[[loop_hi_subset$k_iteration]] %>%
-      dplyr::filter(config_id %in% loop_hi_subset$config_id)
+      filter(config_id %in% loop_hi_subset$config_id)
     
     stations_to_use <- unique(best_mixed_array$station)
     best_mixed_array<-best_mixed_array %>% rename(hex_id=station) #converting so it matches input for first time function run....
-    study_area_buffer2 <- sf::st_buffer(best_mixed_array, max_distance)
+    study_area_buffer2 <- st_buffer(best_mixed_array, max_distance)
     
     dist_df_best <- compute_grid_distances3(
       station_df = best_mixed_array,
@@ -1787,7 +1891,7 @@ prepare_dist_df_best <- function(loop_hi_subset, dist_df_iteration, array_size_c
   # Optional starting location
   starting_loc_plot <- NULL
   if (!is.null(starting_loc)) {
-    starting_loc_plot <- sf::st_sfc(sf::st_point(starting_loc), crs = 4326)
+    starting_loc_plot <- st_sfc(st_point(starting_loc), crs = 4326)
   }
   
   list(
@@ -1800,7 +1904,10 @@ prepare_dist_df_best <- function(loop_hi_subset, dist_df_iteration, array_size_c
 ###FUNCTION 5/5
 #Plotting function
 #duplicate
-plot_output_prep <- function(dist_df_best, study_area_grid, stations_to_use, n.receiver_overlap) {
+plot_output_prep <- function(dist_df_best, 
+                             study_area_grid, 
+                             stations_to_use, 
+                             n.receiver_overlap=3) {
   
   # Assumes compute_cell_prob_optim(p_vec, thr) exists in the environment
   dist.df <- as.data.table(dist_df_best)

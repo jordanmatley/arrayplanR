@@ -4,17 +4,33 @@
 \alias{compute_grid_distances1}
 \title{Compute distances between stations (1-receiver overlap)}
 \usage{
-compute_grid_distances1(study_area_grid, study_area, distance_approach = NULL)
+compute_grid_distances1(
+  study_area_grid,
+  study_area,
+  max_distance,
+  cellsize,
+  distance_approach = "horizontal",
+  rel_depth_diff = NULL,
+  water_column_position = NULL
+)
 }
 \arguments{
 \item{study_area_grid}{An sf object containing the gridded study area}
 
-\item{study_area}{An sf object containing the study area.}
+\item{study_area}{An sf object containing the study area}
 
-\item{distance_approach}{An optional identifier that enables three-dimensional distances between an animal and a receiver to be included.}
+\item{max_distance}{Distance from a receiver which you would expect ~0 (or low) detectability}
+
+\item{cellsize}{Size of grids/cells used to calculate distances between receivers and cells}
+
+\item{distance_approach}{An optional identifier that enables three-dimensional distances between an animal and a receiver to be included}
+
+\item{rel_depth_diff}{The relative depth difference (static - i.e., only one value) in metres between animals and receiver locations. Only used when distance_approach="relative_static"}
+
+\item{water_column_position}{The expected position of an animal in the water column to calculate non-horizontal distances between receiver and animal. Only used when distance_approach="relative_dynamic"}
 }
 \value{
-A data frame of receiver-grid distances.
+A data frame of receiver-grid distances
 }
 \description{
 calculate distance of every grid from every other possible receiver location

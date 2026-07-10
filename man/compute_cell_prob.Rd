@@ -12,11 +12,13 @@ compute_cell_prob(
 )
 }
 \arguments{
+\item{dist_df}{An sf receiver-cell distance dataframe (from compute_station_distances function)}
+
 \item{study_area_grid}{An sf object containing the gridded study area}
 
-\item{station_df}{An sf receiver-cell distance dataframe (from compute_station_distances function).}
+\item{n.receiver_overlap}{The number of receivers to detect transmissions from each grid}
 
-\item{study_area}{The number of receivers to detect transmissions from each grid .}
+\item{progress}{Logical; whether to display a progress bar during computation.}
 }
 \value{
 A data frame of all cell detection probabilities.

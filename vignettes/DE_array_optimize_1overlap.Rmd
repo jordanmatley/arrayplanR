@@ -65,6 +65,7 @@ library(proxy)
 library(purrr)
 library(terra)
 library(exactextractr)
+library(ggspatial)
 
 theme_set(theme_bw())
 ```
@@ -133,10 +134,10 @@ set.seed(seed)
 ```{r}
 #gis file (e.g., .shp) or can be added manually from Google Earth
 #study_area = st_read("BB_shp\\eaarlb_STT_250m_WaterMask_bbaypbay.shp") #using existing shp file for study area
-study_area <- sf::st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
+study_area <- st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
 
 #study_area2 = st_read("Study_area_cut.kml") #created a smaller polygon for receivers while allowing detection range to spill over into study_area. Kml object created directly in Google Earth using polygon function. If not desired, simply use study_area2<-study_area.
-study_area2 <- sf::st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
+study_area2 <- st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
 
 #st_write(study_area, "Brewers_JM.geojson") #to export as a GeoJSON file to web application if desired (transform to correct crs first).
 
@@ -156,16 +157,17 @@ study_area_grid_pre <- st_as_sf(study_area_grid_pre) %>%
   mutate(cell_id = 1:nrow(.)) %>%
   mutate(centroid=st_centroid(study_area_grid_pre)) %>%
   st_intersection(study_area) %>%
-  mutate(Name="study_spillover") 
+  mutate(Name="study_spillover")
+
 
 #layout smaller study area grid where receivers will go
 study_area_grid_pre<-study_area_grid_pre %>% 
-  dplyr::select(x,cell_id,Name,centroid) %>% 
+  select(x,cell_id,Name,centroid) %>% 
   rename(geometry=x)
 
 study_area_grid_pre<-st_join(study_area_grid_pre,st_as_sf(study_area2 %>% 
-   dplyr::select(!Name) %>% 
-     mutate(Description="study_area")),join = st_intersects,left = TRUE, largest = TRUE)
+                                                            select(!Name) %>% 
+                                                            mutate(Description="study_area")),join = st_intersects,left = TRUE, largest = TRUE)
 
 ```
 
@@ -181,19 +183,23 @@ study_area_grid_pre<-st_join(study_area_grid_pre,st_as_sf(study_area2 %>%
 #Hab1 <- st_read("Artificial_Habitat.kml")
 #Hab2 <- st_read("Seagrass_Habitat.kml")
 #Hab3 <- st_read("Mixed_Habitat.kml")
-Hab1 <- sf::st_read(system.file("extdata", "Hab1.gpkg", package = "arrayplanR"))
-Hab2 <- sf::st_read(system.file("extdata", "Hab2.gpkg", package = "arrayplanR"))
-Hab3 <- sf::st_read(system.file("extdata", "Hab3.gpkg", package = "arrayplanR"))
+Hab1 <- st_read(system.file("extdata", "Hab1.gpkg", package = "arrayplanR"))
+Hab2 <- st_read(system.file("extdata", "Hab2.gpkg", package = "arrayplanR"))
+Hab3 <- st_read(system.file("extdata", "Hab3.gpkg", package = "arrayplanR"))
 
 
 Habitat_areas <- rbind(Hab1, Hab2, Hab3)
 Habitat_areas <- st_transform(Habitat_areas, 3857)
 
 #add habitat areas per cell (within study area only)
-study_area_grid<-st_join(study_area_grid_pre,st_as_sf(Habitat_areas %>% rename(Habitat=Name) %>% dplyr::select(!Description)),join = st_intersects,left = TRUE, largest = TRUE)
-anyNA(study_area_grid$Habitat)  #does every cell has a habitat designation - FALSE means it does (TRUE is fine **receiver-centric** but if using **cell-centric** approach it should be FALSE)
+study_area_grid<-st_join(study_area_grid_pre,st_as_sf(Habitat_areas %>% 
+                                                        rename(Habitat=Name) %>% 
+                                                        select(!Description)),join = st_intersects,left = TRUE, largest = TRUE)
+anyNA(study_area_grid$Habitat)  #does every cell has a habitat designation - FALSE means it does (TRUE is fine for us here but if using cell-centric approach it should be FALSE)
 study_area_grid$Description<-ifelse(!is.na(study_area_grid$Habitat),"study_area",NA) #differentiating study area where receivers can go
-points_within_study<-study_area_grid$centroid %>% st_within(study_area,sparse = FALSE) #clip cells with centroids specifically that are not on water
+points_within_study<-study_area_grid$centroid %>% 
+  st_within(study_area,sparse = FALSE) #clip cells with centroids specifically that are not on water
+
 study_area_grid <- study_area_grid[points_within_study, ] 
 head(study_area_grid) #Description is NA if not in main receiver study area (i.e., study_area2). Habitats will be NA except when in main study area.
 
@@ -212,7 +218,7 @@ distance_approach == "relative_dynamic"
 
 ```{r eval=FALSE}
 #grid_var <- rast("Depth_tif/BB_depth.tif")
-grid_var <- terra::rast(system.file("extdata", "grid_var.tif", package = "arrayplanR"))
+grid_var <- rast(system.file("extdata", "grid_var.tif", package = "arrayplanR"))
 
 
 grid_var <- project(
@@ -241,7 +247,9 @@ study_area_grid$bottom_depth_cell <- abs(
 
 ```{r}
 #range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). Can be loaded further below as a specific model if already known.
-data(range_df)
+range_df <- read.csv(
+  system.file("extdata", "range_df.csv", package = "arrayplanR")
+)
 ```
 
 # Visualise Study Area
@@ -255,7 +263,7 @@ ggplot() +
   #geom_sf_text(data=dist_df %>% distinct(station,station_loc),aes(geometry=station_loc,label=station),colour="lightblue")+
   labs(fill="Habitat")+
   theme(panel.background = element_rect(fill = "grey", colour = "black"),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.text=element_text(size=15),legend.text = element_text(size=16),legend.title = element_text(size=18),legend.key.size = unit(1.25,"line"))+
-  ggspatial::annotation_scale(line_width = 2, height = unit(1, "cm"),location="tr",text_cex = 1.5)
+  annotation_scale(line_width = 2, height = unit(1, "cm"),location="tr",text_cex = 1.5)
 ```
 
 # Detection Range Model
@@ -280,11 +288,13 @@ ggplot()+
 
 ```{r}
 #calculates distance of every grid from each designated receiver location
-dist_df <- compute_grid_distances1(
-  study_area_grid,
-  study_area,
-  distance_approach
-) #the 'distance_approach' option is already built into function.
+dist_df <- compute_grid_distances1(study_area_grid, 
+                                   study_area,
+                                   max_distance,
+                                   cellsize,
+                                   distance_approach,
+                                   rel_depth_diff,
+                                   water_column_position) #the 'distance_approach' option is already built into function.
 
 head(dist_df)
 #station_loc relative to station
@@ -318,11 +328,22 @@ if (optim_method == "habitat_specific") {
 # Run Optimization Function
 
 ```{r}
-loop_i_to_subset_list <- optimize_1receivers(
-  dist_df,
-  study_area_grid,
-  hab_nrec_alloc
-)
+loop_i_to_subset_list <- optimize_1receivers(dist_df, 
+                                             study_area_grid, 
+                                             hab_nrec_alloc,
+                                             seed,
+                                             starting_loc,
+                                             study_area,
+                                             optim_method,
+                                             min_rec_distance,
+                                             max_i_iterations,
+                                             subsampl_perc_i,
+                                             n.receiver_overlap,
+                                             cell_prob_cutoff,
+                                             cellsize,
+                                             max_distance,
+                                             optim_metric,
+                                             nrecs)
 
 loop_i_to_subset <- loop_i_to_subset_list$loop_i_to_subset
 
@@ -370,11 +391,7 @@ if (!is.null(starting_loc)) {
     type = "response"
   )
 
-  dist_df_post1$prop_detecs <- ifelse(
-    dist_df_post1$landinway == "TRUE",
-    0,
-    dist_df_post1$prop_detecs
-  )
+   dist_df_post1$prop_detecs <- ifelse(dist_df_post1$landinway, 0, dist_df_post1$prop_detecs)
 
   dist_df_post <- rbind(dist_df_post1, dist_df_post2)
 
@@ -387,12 +404,10 @@ if (!is.null(starting_loc)) {
 # Prepare Plot Output
 
 ```{r}
-to_plot_sf <- plot_output_prep(
-  dist_df_post,
-  study_area_grid,
-  stations_to_use,
-  n.receiver_overlap
-)
+to_plot_sf<-plot_output_prep(dist_df_post,
+                             study_area_grid,
+                             stations_to_use,
+                             n.receiver_overlap)
 ```
 
 
@@ -407,7 +422,7 @@ stations_locs_best1<-dist_df_post %>%
 stations_locs_best2 <- st_as_sf(stations_locs_best1, crs = st_crs(study_area))
 
 stations_locs_best2 <- st_transform(stations_locs_best2, crs=4326) %>% 
-  dplyr::select(-station) %>% 
+  select(-station) %>% 
   rename(station_loc=station_loc_proj) #or adjust crs as needed to original input
 
 stations_locs_best<-cbind(stations_locs_best1,stations_locs_best2)
@@ -426,11 +441,12 @@ to_plot_sf %>% filter(prob_cell_all>=cell_prob_cutoff) %>% #toggle to show cut-o
   #geom_sf_text(data=dist_df_post %>% filter(station %in% stations_to_use) %>% distinct(station,station_loc),aes(geometry=station_loc, label=station),colour="red")+
   geom_sf(data=dist_df_post %>% filter(station %in% stations_to_use) %>% distinct(station,station_loc,.keep_all=TRUE),aes(geometry=station_loc,colour=Habitat),show.legend=TRUE)+
   geom_sf(data = study_area,fill=NA) +
-  labs(fill="Probability\nof detection",title=paste("Optimisation:",optim_method,"| Metric:",optim_metric,"| Overlap:",n.receiver_overlap))+
+  labs(fill="Probability\nof detection")+
+  ggtitle(paste("Estimated optimization:",optim_method,";",optim_metric,";","n.receiver_overlap:",n.receiver_overlap))+
   scale_colour_manual(values = c("Artificial" = "red", "Mixed" = "purple", "Seagrass" = "black"))+
   scale_fill_viridis_c(breaks=seq(0, 1, 0.25),limits=c(0,1),option = "viridis",alpha=1)+
   theme(panel.background = element_rect(fill = "grey", colour = "black"),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.ticks=element_blank(),axis.text=element_blank(),axis.title=element_blank(),legend.text = element_text(size=16),legend.title = element_text(size=18),legend.key.size = unit(1.25,"line"))+
-  ggspatial::annotation_scale(line_width = 2, height = unit(1, "cm"),location="tr",text_cex = 1.25)
+  annotation_scale(line_width = 2, height = unit(1, "cm"),location="tr",text_cex = 1.25)
 ```
 
 ---

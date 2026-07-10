@@ -17,11 +17,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Jordan Matley \email{jordan.matley@example.com}
+\strong{Maintainer}: Jordan Matley \email{jordan.matley@gmail.com}
 
 Authors:
 \itemize{
-  \item Jordan Matley \email{jordan.matley@example.com}
+  \item Jordan Matley \email{jordan.matley@gmail.com}
 }
 
 }

@@ -7,7 +7,24 @@
 optimize_3receivers(
   study_area_grid,
   hab_nrec_alloc = NULL,
-  starting_loc = NULL
+  starting_loc = NULL,
+  seed,
+  rec_dist_iterations,
+  cellsize,
+  min_rec_distance,
+  max_distance,
+  study_area2,
+  optim_method = "all_possible",
+  square_array_config = FALSE,
+  study_area,
+  distance_approach = "horizontal",
+  rel_depth_diff = NULL,
+  water_column_position = NULL,
+  range_model,
+  cell_prob_cutoff,
+  n.receiver_overlap = 3,
+  nrecs,
+  rec_dist_variation = "static"
 )
 }
 \arguments{
@@ -16,6 +33,40 @@ optimize_3receivers(
 \item{hab_nrec_alloc}{An optional identifier for habitat-specific receiver locations}
 
 \item{starting_loc}{An optional identifier for a forced receiver location}
+
+\item{seed}{Iteration seed}
+
+\item{rec_dist_iterations}{Different receiver spacing distances (h iterations) to test for optimization estimates across adjacent n receivers (i iterations)}
+
+\item{cellsize}{Size of grids/cells used to calculate distances between receivers and cells}
+
+\item{min_rec_distance}{The minimum distance that receivers should be apart. Only used when optim_method="min_distance"}
+
+\item{max_distance}{Distance from a receiver which you would expect ~0 (or low) detectability}
+
+\item{study_area2}{An sf object containing a reduced area within the study area where receivers can be positioned}
+
+\item{optim_method}{The method used to optimize receiver array}
+
+\item{square_array_config}{Selection between square or triangular receiver array configuration}
+
+\item{study_area}{An sf object containing the study area}
+
+\item{distance_approach}{An optional identifier that enables three-dimensional distances between an animal and a receiver to be included}
+
+\item{rel_depth_diff}{The relative depth difference (static - i.e., only one value) in metres between animals and receiver locations. Only used when distance_approach="relative_static"}
+
+\item{water_column_position}{The expected position of an animal in the water column to calculate non-horizontal distances between receiver and animal. Only used when distance_approach="relative_dynamic"}
+
+\item{range_model}{Detection range model based on range testing}
+
+\item{cell_prob_cutoff}{Equivalent to a x\% chance of a transmission from a grid being heard (by n receivers)}
+
+\item{n.receiver_overlap}{Set how many receivers to detect transmission from a grid}
+
+\item{nrecs}{The number of receivers to be deployed}
+
+\item{rec_dist_variation}{Selection whether receivers are to be spaced at different distances (e.g., combinations of rec_dist_iterations) in addition to the static spacing designated, or consistent spacing}
 }
 \value{
 A data frame of performance metrics across iterations.

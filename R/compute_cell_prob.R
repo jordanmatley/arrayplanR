@@ -1,41 +1,52 @@
-#' @import data.table
+#' @importFrom dplyr bind_rows
+#' @importFrom dplyr distinct
+#' @importFrom dplyr left_join
+#' @importFrom dplyr mutate
+#' @importFrom tidyr replace_na
+#' @importFrom tibble tibble
+#' @importFrom progressr handlers
+#' @importFrom progressr progressor
 NULL
 
 #' Compute receiver-cell probabilities
 #'
 #' calculate receiver-cell probabilities based on designated n.receiver_overlap
 #'
-#' @param station_df An sf receiver-cell distance dataframe (from compute_station_distances function).
-#' @param study_area_grid An sf object containing the gridded study area 
-#' @param study_area The number of receivers to detect transmissions from each grid .
+#' @param dist_df An sf receiver-cell distance dataframe (from compute_station_distances function)
+#' @param study_area_grid An sf object containing the gridded study area
+#' @param n.receiver_overlap The number of receivers to detect transmissions from each grid
+#' @param progress Logical; whether to display a progress bar during computation.
 #'
 #' @return A data frame of all cell detection probabilities.
-#' @export 
+#' @export
 
 
 #######DE ARRAY CALCULATE FUNCTION#########
 
 ###FUNCTION 2/2
 #calculate receiver-cell probabilities based on designated n.receiver_overlap
-compute_cell_prob <- function(dist_df, study_area_grid, n.receiver_overlap, progress = TRUE) {
-  
+compute_cell_prob <- function(dist_df,
+                              study_area_grid,
+                              n.receiver_overlap,
+                              progress = TRUE) {
+
   #initial checks
   stopifnot("cell_id" %in% names(dist_df))
   stopifnot("prop_detecs" %in% names(dist_df))
   if (!inherits(study_area_grid, "sf")) stop("study_area_grid must be an sf object with geometry and cell_id.")
   stopifnot("cell_id" %in% names(study_area_grid))
   if (!is.numeric(n.receiver_overlap) || n.receiver_overlap < 1) stop("n.receiver_overlap must be integer >= 1")
-  
+
   cell_split <- split(dist_df, dist_df$cell_id) #split cells
   cell_ids <- names(cell_split)
-  
+
   if (progress) {
     handlers("txtprogressbar")
     p <- progressor(along = cell_ids)
   } else {
     p <- function(...) NULL
   }
-  
+
   #internal probability calculation function
   compute_for_one <- function(cell_df, thr) {
     cid <- unique(cell_df$cell_id)
@@ -62,7 +73,7 @@ compute_cell_prob <- function(dist_df, study_area_grid, n.receiver_overlap, prog
     }
     tibble(cell_id = cid, prob_cell_all = 1 - sum(dp))
   }
-  
+
   #apply internal function across cells
   out_list <- vector("list", length(cell_ids))
   for (i in seq_along(cell_ids)) {
@@ -70,12 +81,13 @@ compute_cell_prob <- function(dist_df, study_area_grid, n.receiver_overlap, prog
     out_list[[i]] <- compute_for_one(cell_split[[i]], n.receiver_overlap)
   }
   dist_df_prob <- bind_rows(out_list)
-  
+
   #join back cells
   study_grid_unique <- study_area_grid %>%
     distinct(cell_id, .keep_all = TRUE)
   dist_df_prob_joined <- study_grid_unique %>%
     left_join(dist_df_prob, by = "cell_id") %>%
-    mutate(prob_cell_all = tidyr::replace_na(prob_cell_all, 0))
+    mutate(prob_cell_all = replace_na(prob_cell_all, 0))
 }
+
 

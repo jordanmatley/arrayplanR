@@ -4,16 +4,21 @@
 \alias{plot_output_prep}
 \title{Preparing stored data for plotting}
 \usage{
-plot_output_prep(dist_df, study_area_grid, stations_to_use, n.receiver_overlap)
+plot_output_prep(
+  dist_df_best,
+  study_area_grid,
+  stations_to_use,
+  n.receiver_overlap = 3
+)
 }
 \arguments{
+\item{dist_df_best}{An sf receiver-cell distance dataframe (from compute_grid_distances1 function).}
+
 \item{study_area_grid}{An sf object containing the gridded study area}
 
 \item{stations_to_use}{Vector of station names to be used in final array configuration}
 
 \item{n.receiver_overlap}{The number of receivers to detect a transmission across grids (e.g., fine-scale vs broad-scale)}
-
-\item{station_df}{An sf receiver-cell distance dataframe (from compute_grid_distances1 function).}
 }
 \value{
 A data frame with detection probabilities across study area.

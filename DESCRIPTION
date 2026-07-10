@@ -6,17 +6,20 @@ Authors@R:
       given = "Jordan",
       family = "Matley",
       role = c("aut", "cre"),
-      email = "jordan.matley@example.com"
+      email = "jordan.matley@gmail.com"
     )
 Description: This package aims at helping users evaluate existing and plan new acoustic telemetry receiver arrays based on detectability performance from several useful input parameters. The calculations are based on simple probability theory and consist of three main workflows: 1) DE_array_calculate - evaluates the performance of an acoustic receiver array using detection range testing data and predefined receiver locations; 2) DE_array_optimize_1overlap - optimizes acoustic receiver array configurations when receiver locations are not pre-designated based on simulated detections being recorded on only 1 receiver; 3) DE_array_optimize_3overlap - optimizes acoustic receiver array configurations when receiver locations are not pre-designated based on simulated detections being recorded on >1 receivers.
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Suggests: 
+    exactextractr,
+    ggplot2,
+    ggspatial,
     knitr,
-    rmarkdown
+    rmarkdown,
+    terra
 VignetteBuilder: knitr
 Depends: 
     R (>= 3.5)
@@ -25,15 +28,11 @@ Imports:
     data.table,
     digest,
     dplyr,
-    exactextractr,
-    ggplot2,
-    ggspatial,
     progressr,
     proxy,
     purrr,
-    rlang,
     sf,
-    terra,
+    tibble,
     tidyr
 URL: https://github.com/jordanmatley/arrayplanR
 BugReports: https://github.com/jordanmatley/arrayplanR/issues

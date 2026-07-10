@@ -4,14 +4,57 @@
 \alias{optimize_1receivers}
 \title{Optimize receivers (1-receiver overlap)}
 \usage{
-optimize_1receivers(dist_df, study_area_grid, hab_nrec_alloc = NULL)
+optimize_1receivers(
+  dist_df,
+  study_area_grid,
+  hab_nrec_alloc = NULL,
+  seed,
+  starting_loc = NULL,
+  study_area,
+  optim_method = "all_possible",
+  min_rec_distance,
+  max_i_iterations,
+  subsampl_perc_i = 100,
+  n.receiver_overlap = 1,
+  cell_prob_cutoff,
+  cellsize,
+  max_distance,
+  optim_metric = "sum_prob_cells",
+  nrecs
+)
 }
 \arguments{
+\item{dist_df}{An sf receiver-cell distance dataframe (from compute_grid_distances1 function)}
+
 \item{study_area_grid}{An sf object containing the gridded study area}
 
 \item{hab_nrec_alloc}{An optional identifier for habitat-specific receiver locations}
 
-\item{station_df}{An sf receiver-cell distance dataframe (from compute_grid_distances1 function).}
+\item{seed}{Iteration seed}
+
+\item{starting_loc}{An optional identifier for a forced receiver location}
+
+\item{study_area}{An sf object containing the study area.}
+
+\item{optim_method}{The method used to optimize receiver array}
+
+\item{min_rec_distance}{The minimum distance that receivers should be apart. Only used when optim_method="min_distance"}
+
+\item{max_i_iterations}{Number of i iterations to process as a balance between computational costs and maximizing optimization solution}
+
+\item{subsampl_perc_i}{The percent of all possible receiver-grid combinations taken (and randomized) in each i iteration}
+
+\item{n.receiver_overlap}{Set how many receivers to detect transmission from a grid}
+
+\item{cell_prob_cutoff}{Equivalent to a x\% chance of a transmission from a grid being heard (by n receivers)}
+
+\item{cellsize}{Size of grids/cells used to calculate distances between receivers and cells}
+
+\item{max_distance}{Distance from a receiver which you would expect ~0 (or low) detectability}
+
+\item{optim_metric}{Approach used to optimize array performance}
+
+\item{nrecs}{The number of receivers to be deployed}
 }
 \value{
 A data frame of performance metrics across iterations.
