@@ -87,11 +87,6 @@ optimize_3receivers <- function(study_area_grid,
 
   message("First, calculating receiver-cell distances...")
 
-  #For temporary storage (not tested for MacOS)
-  #newtemp <- "C:/temp_R"
-  #dir.create(newtemp, showWarnings = FALSE)
-  #Sys.setenv(TMP = newtemp, TEMP = newtemp)
-
   set.seed(seed)
   options(datatable.verbose = FALSE)
   options(datatable.print.progress = FALSE)
@@ -185,18 +180,11 @@ optimize_3receivers <- function(study_area_grid,
       hex_stations_all <- unique(hex_locs$hex_id)
       if (nrecs > length(hex_stations_all)) stop("nrecs greater than available stations")
 
-      #this moves point to grid centroid
-      #hex_locs_i<-st_join(hex_locs,dt_unique_grid,join = st_intersects,left = TRUE, largest = TRUE) %>% st_set_geometry("centroid") %>% select(-geometry)
-      #hex_locs_i<-hex_locs_i %>% filter(!is.na(Habitat))
-      #this keeps at specific location (and may skews some distances between grids,especially with larger grid sizes - can also switch study_area_grid_pre in "DE_array_optimize_3overlap.r" square to TRUE/FALSE to improve)
-      #hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% select(-station_loc)) #%>% rename(Habitat_station=Habitat)
-      hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% select(!c(station_loc,station))) #do not need station i don't think and it confuses further down
-      hex_locs_i<-hex_locs_i %>% filter(!is.na(Habitat)) #can have diff hex_id's in same station ID (which is from background grid cell_id - potentially problematic...need to make sure hex_id is actual new stationID because it is unique...should only be using station here in relation to what habitat it is and where it is from...)
-      #head(hex_locs_i) #geometry is hex location
+      hex_locs_i<-hex_locs %>% st_intersection(dt_unique_grid %>% select(!c(station_loc,station)))
+      hex_locs_i<-hex_locs_i %>% filter(!is.na(Habitat)) #be aware with this approach (receiver-centric) can have diff hex_id's in same station ID (which is from background grid cell_id)
 
       if (!is.null(starting_loc)) {
         starting_station_number_pre<-hex_locs_i %>% filter(hex_id %in% starting_station_number_pre)
-        #starting_station_number<-starting_station_number_pre$station
         starting_station_number<-starting_station_number_pre$hex_id #hex_id fix
 
       }
@@ -204,7 +192,6 @@ optimize_3receivers <- function(study_area_grid,
       study_area_buffer<-st_buffer(hex_locs_i,max_distance)
 
       #use distance function here for hex_locs only...
-      #handlers(global = TRUE)
       dist_df <- compute_grid_distances3(
         station_df = hex_locs_i,
         study_area_buffer = study_area_buffer,
@@ -235,7 +222,6 @@ optimize_3receivers <- function(study_area_grid,
         dist_df <- merge(dist_df,station_lookup[, c("station", "station_depth")],
                          by = "station",
                          all.x = TRUE)
-        #head(dist_df)
       }
 
       # ==========================================================
@@ -320,11 +306,8 @@ optimize_3receivers <- function(study_area_grid,
         # All candidate stations (excluding itself)
         candidate_stations <- dt_unique_sf$station[-i]
 
-        #filter out land-blocked stations
-        #land_blocks <- dt[.(station_this_i, candidate_stations), landinway] #won't work on 3 version because land in ways are between cell_id not stations/hex_id - so need to redo for stations specifically
         # Barrier check
         station_coords1 <- matrix(st_coordinates(st_geometry(dt_unique_sf[i, ])), ncol = 2)
-        #centroid_coords1 <- st_coordinates(centroids_sfc)[,1:2, drop = FALSE]
         centroid_coords1 <- st_coordinates(dt_unique_sf[-i, ])[,1:2, drop = FALSE]
         target_crs <- st_crs(study_area)
 
@@ -339,17 +322,8 @@ optimize_3receivers <- function(study_area_grid,
         study_area_line <- st_cast(study_area, "MULTILINESTRING")
 
         landinway1 <- lengths(st_intersects(station_cell_line1, study_area_line)) > 0
-        #candidate_stations1<-data.frame(station=c(station_this_i,candidate_stations),landinway1=c("FALSE",landinway1))
-        #head(candidate_stations1) #issue if order important
-        #dt<-dt %>% left_join(candidate_stations1,by="station") %>% filter(landinway1==FALSE)
-        #head(dt)
-        #there is already a landinway from station to cell_id - may need later?
-        #unique(dt$landinway1)
-        #land_blocks[is.na(land_blocks)] <- TRUE
-        #valid_connection <- !land_blocks
 
         #Keep only distance-ranked stations that also have a clear line of sight
-        #nearest_idx <- which( dist_ranks <= (nrecs - 1) & valid_connection)
         nearest_idx <- which( dist_ranks <= (nrecs - 1) & landinway1==FALSE)
 
 
@@ -380,7 +354,7 @@ optimize_3receivers <- function(study_area_grid,
 
         #get convex hull of receivers
         rec_convexhull <- st_convex_hull(st_union(near_stations_i))
-        rec_convexhull_buf <- st_buffer(rec_convexhull, dist = min(rec_dist_iterations))#could use receiver distances for this h-iteration, but no matter what we want receivers to optimiz
+        rec_convexhull_buf <- st_buffer(rec_convexhull, dist = min(rec_dist_iterations))
         # Get only the grid cells in the convex hull
         cells_in_hull <- dt_unique_grid[st_intersects(dt_unique_grid, rec_convexhull_buf, sparse = FALSE), ]
         # Filter dt_prob to keep only those cell_ids because we want to optimize such that receivers are pushed outwards (and not clumped together which technically has large coverage - but is not valuable for triangulation)
@@ -432,9 +406,8 @@ optimize_3receivers <- function(study_area_grid,
         loop_i_blank[[i]] <- dt_prob_summ
 
         Hab_keep_track<-near_stations_i %>% mutate(rec_distance_iteration = hexsize,focal_station=station_this_i)
-        Hab_keep_track$h_iteration<-h # i think i need this
+        Hab_keep_track$h_iteration<-h
         Hab_keep_track$i_iteration<-i
-        #head(Hab_keep_track)
         Hab_loop_i_blank[[i]]<-Hab_keep_track
 
         any_valid_i <- TRUE  # mark at least one i iteration successful
@@ -528,50 +501,40 @@ optimize_3receivers <- function(study_area_grid,
           p(sprintf("k = %d / %d", k, length(loop_hi_mainHAB_split)))  # update FIRST
 
           loop_k_array <- loop_hi_mainHAB_split[[k]] #k=4
-          #head(loop_k_array)
 
           if (is.na(loop_k_array$n_habitats[1]) || loop_k_array$n_habitats[1] <= 1) next #not needed if only 1 habitat or NA
 
           #access rec locations
-          #main_hab<-Hab_hi_to_subset %>% filter(hi_iteration %in% unique(loop_k_array$hi_iteration)) %>% dplyr::select(!c(h_iteration,i_iteration))
+
           main_hab <- Hab_hi_to_subset[
             hi_iteration == loop_k_array$hi_iteration[1],
             !c("h_iteration", "i_iteration"),
             with = FALSE
           ]
-          #main_hab
+
 
           #find nearest focal receiver in other iterations
-          #tomatch_habs<-Hab_hi_to_subset  %>% filter(rec_distance_iteration!=unique(main_hab$rec_distance_iteration)) %>% filter(station==focal_station)
           tomatch_habs <- Hab_hi_to_subset[
             rec_distance_iteration != main_hab$rec_distance_iteration[1] &
               station == focal_station
           ]
-          #head(tomatch_habs)
           if(nrow(tomatch_habs)==0) next
 
-          #main_hab_focal<-main_hab %>% filter(station==focal_station)
           main_hab_focal<-main_hab[station==focal_station]
-          #main_hab_focal
 
           tomatch_habs$dist_to_focal_m <- as.numeric(st_distance(tomatch_habs$station_loc, main_hab_focal$station_loc))
-          #head(tomatch_habs)
 
-          #tomatch_habs<-tomatch_habs %>% group_by(rec_distance_iteration) %>% slice_min(dist_to_focal_m,n=1) %>% mutate(ite_focal=paste(rec_distance_iteration,focal_station,sep="-"))
           tomatch_habs <- tomatch_habs[
             , .SD[which.min(dist_to_focal_m)], by = rec_distance_iteration
           ][
             , ite_focal := paste(rec_distance_iteration, focal_station, sep = "-")
           ]
 
-
-          #secondary_hab<-Hab_hi_to_subset %>% mutate(ite_focal=paste(rec_distance_iteration,focal_station,sep="-")) %>% filter(ite_focal %in% unique(tomatch_habs$ite_focal)) %>% dplyr::select(!c(h_iteration,i_iteration))
           secondary_hab <- Hab_hi_to_subset[
             paste(rec_distance_iteration, focal_station, sep = "-") %in% tomatch_habs$ite_focal,
             !c("h_iteration", "i_iteration"),
             with = FALSE
           ]
-          #head(secondary_hab)
 
           # Convert geometry column to sf if needed
           main_sf <- st_as_sf(main_hab, sf_column_name = "station_loc")
@@ -627,16 +590,12 @@ optimize_3receivers <- function(study_area_grid,
             })
           )
 
-          #nearest_by_distance
-
           #in case there are NAs in the nearest_distance - e.g., due to min_rec_dist
           nearest_by_distance <- nearest_by_distance[
             , if (!any(is.na(nearest_distance))) .SD,
             by = matched_distance_iteration
           ]
           if(nrow(nearest_by_distance)==0) next
-
-          #setDT(nearest_by_distance)
 
           # Base habitat configuration (fixed receiver locations)
           # base configuration (fixed original array)
@@ -731,14 +690,6 @@ optimize_3receivers <- function(study_area_grid,
             if (nrow(array_size_configs) == 0) next
           }
 
-          # ---- sf conversion ----
-          # array_size_configs <- st_as_sf(
-          #    array_size_configs[, !c("focal_habitat", "matched_distance_iteration")],
-          #    wkt = "main_station_loc",
-          #    crs = st_crs(study_area)
-          #  ) %>% rename(geometry=main_station_loc,Habitat=main_habitat)
-          #  #names(array_size_configs)[names(array_size_configs) == "main_habitat"] <- "Habitat"
-
           array_size_configs <- st_as_sf(
             array_size_configs[
               , !c("focal_habitat", "matched_distance_iteration")
@@ -755,10 +706,6 @@ optimize_3receivers <- function(study_area_grid,
           st_geometry(array_size_configs) <- "geometry"
 
 
-
-
-
-
           # ---- min distance constraint ----
           if (optim_method == "min_distance") {
             array_size_configs <- as.data.table(array_size_configs)[
@@ -770,7 +717,6 @@ optimize_3receivers <- function(study_area_grid,
             ]
             if (nrow(array_size_configs) == 0) next
           }
-          #array_size_configs
 
           #calculating main metrics for later add-on to main output
           config_split <- split(array_size_configs,array_size_configs$config_id) #slowest bit
@@ -785,10 +731,7 @@ optimize_3receivers <- function(study_area_grid,
                 return(NULL)
               }
             }
-            ####MAY BE AN ISSUE
-            #loop_j_array<-loop_j_array %>% rename(hex_id=station) #converting so it matches input for first time function run....
             setnames(loop_j_array, "station", "hex_id") #converting so it matches input for first time function run....
-            ####MAY BE AN ISSUE
 
             study_area_buffer1<-st_buffer(loop_j_array,max_distance)
 
@@ -805,12 +748,8 @@ optimize_3receivers <- function(study_area_grid,
                 study_area_grid,
                 study_area)
             })
-            #}) #silence progress bar within function
-            #dist_df_hab<-dist_df_hab %>% rename(station=hex_id) #to match up with later and because these are stations really
+
             setnames(dist_df_hab, "hex_id", "station") #to match up with later and because these are stations really
-
-
-
 
 
             ##############
@@ -825,7 +764,6 @@ optimize_3receivers <- function(study_area_grid,
               dist_df_hab <- merge(dist_df_hab,station_lookup_hab[, c("station", "station_depth")],
                                    by = "station",
                                    all.x = TRUE)
-              #head(dist_df_hab)
             }
 
 
@@ -958,26 +896,13 @@ optimize_3receivers <- function(study_area_grid,
             return(dt_hab_prob_summ)
           }
 
-          #suppressWarnings({
           array_configs_list <- without_progress(lapply(config_split, process_config))
-          #})
-          #array_configs_list <- progressr::without_progress({
-          #  options(progressr.enable = FALSE)
-          #  on.exit(options(progressr.enable = TRUE), add = TRUE)
-          #
-          #  lapply(config_split, process_config)
-          #})
 
           array_configs_df <- rbindlist(array_configs_list, fill = TRUE)
-          #head(array_configs_df)
 
           #Need to merge all this with main loop file
-
           loop_hi_mainHAB[[k]]<-array_configs_df
-          #array_size_configs_blank[[k]]<-array_size_configs
           array_size_configs_blank[[k]] <- array_size_configs #store for later plotting
-
-          #})
 
         } #end k loop
 

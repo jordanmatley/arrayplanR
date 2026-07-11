@@ -101,7 +101,6 @@ compute_grid_distances1 <- function(study_area_grid,
     st_cast(study_area, "MULTILINESTRING")
   }, error = function(e) NULL)
 
-  #data.table::setDT(dt) #add during package creation
   dt[, landinway := FALSE]
 
   if (!is.null(coast_line) && length(coast_line) > 0 && nrow(dt) > 0) {
@@ -147,9 +146,7 @@ compute_grid_distances1 <- function(study_area_grid,
       if(length(x) == 0) NA_real_
       else study_area_grid$bottom_depth_cell[x[1]]
     },numeric(1))
-    #dist_df <- merge(dist_df,"bottom_depth_cell" %in% names(study_area_grid)[, c("station", "station_depth")],
-    #                 by = "station",
-    #                 all.x = TRUE)
+
     dist_df <- merge(dist_df,station_lookup[, c("station", "station_depth")],
                      by = "station",
                      all.x = TRUE)

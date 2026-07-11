@@ -62,11 +62,6 @@ optimize_1receivers <- function(dist_df,
                                 optim_metric="sum_prob_cells",
                                 nrecs) {
 
-  #creating temporary folder for potential memory issues (not tested for MacOS)
-  #newtemp <- "C:/temp_R"
-  #dir.create(newtemp, showWarnings = FALSE)
-  #Sys.setenv(TMP = newtemp, TEMP = newtemp)
-
   message(paste("Identifying estimated optimized receiver locations based on: ", max_i_iterations,
                 " i iterations. Each i iteration will include ~",
                 round(choose(n_distinct(dist_df$station), n.receiver_overlap) * (subsampl_perc_i / 100), 0),
@@ -158,7 +153,6 @@ optimize_1receivers <- function(dist_df,
   if (optim_method == "min_distance") {
     # convert centroids to numeric matrix
     coords_mat <- st_coordinates(station_centroid$centroid)
-    # as.matrix(dist(...)) calculates Euclidean distances; acceptable substitute for st_distance for speed
     dist_mat_full <- as.matrix(dist(coords_mat))
     rownames(dist_mat_full) <- station_centroid$station
     colnames(dist_mat_full) <- station_centroid$station

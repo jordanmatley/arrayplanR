@@ -48,17 +48,14 @@ compute_grid_distances3 <- function(station_df,
   # For land barrier
   study_area_line <- st_cast(study_area, "MULTILINESTRING")
 
-  #station_split <- split(station_df, station_df$station) # Split stations (technically uses this for second ime function run - so will have to adjust so both attempts run)
   station_split <- split(station_df, station_df$hex_id) # Split hex_id stations [not background cells because they are just reference habitats and distances - including potentially duplicate stations since hex_ids may fall in duplicate station/cell_ids]
 
-  #handlers("txtprogressbar")  # progress bar
   result_list <- with_progress({
     handlers("cli")
     p <- progressor(along = station_split)
 
     lapply(station_split, function(station_df_loop) {
       p()
-      #station_i <- station_df_loop$station[1] #is background cell id
       station_i <- station_df_loop$hex_id[1] #is hex_id/proper station id
       station_geom <- station_df_loop$geometry[1] #is geometry of hex_id
 
@@ -66,20 +63,11 @@ compute_grid_distances3 <- function(station_df,
       # Subset buffer & intersect with grid
       suppressWarnings(
         study_buffer_loop <- study_area_buffer %>%
-          #dplyr::filter(station == station_i) %>%
           filter(hex_id == station_i) %>% #with new hex_id fix
           st_intersection(study_area_grid %>% select(-Name) %>% rename(background_grid_habitat=Habitat))
       )
       #centroid = background cell_id centroid
       #geometry = geometry of used cell_id (may be partially used)
-
-      #ggplot()+
-      #  geom_sf(data = study_area,fill="white")+
-      #  geom_sf(data=study_buffer_loop,aes(geometry=geometry))+
-      #  geom_sf(data=study_buffer_loop,aes(geometry=centroid))
-
-      #Okay to use centroids where grid only partially used
-
 
       if (nrow(study_buffer_loop) == 0L) return(NULL)
 
@@ -87,12 +75,6 @@ compute_grid_distances3 <- function(station_df,
         match(study_buffer_loop$cell_id, study_area_grid$cell_id)
       ]
       centroids_sfc <- st_geometry(study_buffer_loop$centroid)
-
-      #ggplot()+
-      #  geom_sf(data = study_area,fill="white")+
-      #  geom_sf(data=study_buffer_loop,aes(geometry=geometry))+ #cell_id geometry
-      #  geom_sf_text(data=study_buffer_loop,aes(geometry=centroid,label=cell_id))+ #cell_id centroid
-      #  geom_sf(data=station_geom,colour="red") #station
 
       # Compute distances
       dist_to_receiver <- as.numeric(st_distance(centroids_sfc, station_geom)) #background cell centroids and hex_id station loc
