@@ -332,7 +332,7 @@ dist_df_prob %>% filter(prob_cell_all>cell_prob_cutoff) %>% #toggle to show cut-
 
 # Related Workflows
 
-- `DE_array_calculate` (this workflow)
+- `DE_array_quantify` (this workflow)
 - `DE_array_optimize_1overlap`
 - `DE_array_optimize_3overlap` 
 

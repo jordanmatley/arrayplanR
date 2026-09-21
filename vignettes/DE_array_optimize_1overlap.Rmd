@@ -453,7 +453,7 @@ to_plot_sf %>% filter(prob_cell_all>=cell_prob_cutoff) %>% #toggle to show cut-o
 
 # Related Workflows
 
-- `DE_array_calculate` 
+- `DE_array_quantify` 
 - `DE_array_optimize_1overlap` (this workflow)
 - `DE_array_optimize_3overlap` 
 
