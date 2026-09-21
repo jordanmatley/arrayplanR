@@ -146,14 +146,14 @@ head(dist_df)
 #######RECEIVER-GRID DISTANCE CALCULATIONS#########
 
 
-#######CALCULATE OVERALL CELL PROBABILITIES#########
+#######QUANTIFY OVERALL CELL PROBABILITIES#########
 dist_df_prob <- compute_cell_prob(
   dist_df,
   study_area_grid,
   n.receiver_overlap
 )
 head(dist_df_prob)
-#######CALCULATE OVERALL CELL PROBABILITIES#########
+#######QUANTIFY OVERALL CELL PROBABILITIES#########
 
 
 #######SUMMARY TABLE#########

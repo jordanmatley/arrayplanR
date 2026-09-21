@@ -21,10 +21,10 @@ NULL
 #' @export
 
 
-#######DE ARRAY CALCULATE FUNCTION#########
+#######DE ARRAY QUANTIFY FUNCTION#########
 
 ###FUNCTION 2/2
-#calculate receiver-cell probabilities based on designated n.receiver_overlap
+#Quantify receiver-cell probabilities based on designated n.receiver_overlap
 compute_cell_prob <- function(dist_df,
                               study_area_grid,
                               n.receiver_overlap,

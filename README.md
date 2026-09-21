@@ -18,7 +18,7 @@ browseVignettes("arrayplanR")
 
 ## Examples
 
-Please browse vignettes for "DE_array_calculate", "DE_array_optimize_1overlap", and "DE_array_optimize_3overlap" workflows
+Please browse vignettes for "DE_array_quantify", "DE_array_optimize_1overlap", and "DE_array_optimize_3overlap" workflows
 
 ## Contact
 

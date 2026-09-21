@@ -33,7 +33,7 @@ NULL
 #' @export
 
 
-#######DE ARRAY CALCULATE FUNCTION#########
+#######DE ARRAY QUANTIFY FUNCTION#########
 
 ###FUNCTION 1/2
 #calculate distance of every grid from each designated receiver location
