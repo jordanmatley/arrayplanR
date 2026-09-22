@@ -136,7 +136,8 @@ set.seed(seed)
 #study_area = st_read("BB_shp\\eaarlb_STT_250m_WaterMask_bbaypbay.shp") #using existing shp file for study area
 study_area <- st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
 
-#study_area2 = st_read("Study_area_cut.kml") #created a smaller polygon for receivers while allowing detection range to spill over into study_area. Kml object created directly in Google Earth using polygon function. If not desired, simply use study_area2<-study_area.
+#study_area2 = st_read("Study_area_cut.kml") #created a smaller polygon for receivers while allowing detection range to spill over into study_area. 
+   #Kml object created directly in Google Earth using polygon function. If not desired, simply use study_area2<-study_area.
 study_area2 <- st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
 
 #st_write(study_area, "Brewers_JM.geojson") #to export as a GeoJSON file to other web applications if desired (transform to correct crs first).
@@ -246,7 +247,8 @@ study_area_grid$bottom_depth_cell <- abs(
 # Range Testing Data
 
 ```{r}
-#range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). Can be loaded further below as a specific model if already known.
+#range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). 
+   #Can be loaded further below as a specific model if already known.
 range_df <- read.csv(
   system.file("extdata", "range_df.csv", package = "arrayplanR")
 )
@@ -269,7 +271,9 @@ ggplot() +
 # Detection Range Model
 
 ```{r}
-range_model <- glm(prop_detecs ~ dist_to_receiver + Habitat,data = range_df,family = binomial(link = "logit")) #Assumes a horizontal distance between cell and receiver - which can be further adjusted (i.e., to account for different animal-receiver depths) with the `distance_approach` option (and is applied in the **compute_station_distances** function below).
+range_model <- glm(prop_detecs ~ dist_to_receiver + Habitat,data = range_df,family = binomial(link = "logit")) 
+#Assumes a horizontal distance between cell and receiver - which can be further adjusted (i.e., to account for different animal-receiver depths) 
+   #with the `distance_approach` option (and is applied in the **compute_station_distances** function below).
 ```
 
 ## Range Curves

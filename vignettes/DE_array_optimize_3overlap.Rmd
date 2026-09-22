@@ -139,7 +139,8 @@ set.seed(seed)
 #study_area = st_read("BB_shp\\eaarlb_STT_250m_WaterMask_bbaypbay.shp") #using existing shp file for study area
 study_area <- st_read(system.file("extdata", "study_area.gpkg", package = "arrayplanR"))
 
-#study_area2 = st_read("Study_area_cut.kml") #created a smaller polygon for receivers while allowing detection range to spill over into study_area. Kml object created directly in Google Earth using polygon function. If not desired, simply use study_area2<-study_area.
+#study_area2 = st_read("Study_area_cut.kml") #created a smaller polygon for receivers while allowing detection range to spill over into study_area. 
+   #Kml object created directly in Google Earth using polygon function. If not desired, simply use study_area2<-study_area.
 study_area2 <- st_read(system.file("extdata", "study_area2.gpkg", package = "arrayplanR"))
 
 #st_write(study_area, "Brewers_JM.geojson") #to export as a GeoJSON file to other web applications if desired (transform to correct crs first).
@@ -246,7 +247,8 @@ study_area_grid$bottom_depth_cell <- abs(
 # Range Testing Data
 
 ```{r}
-#range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). Can be loaded further below as a specific model if already known.
+#range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). 
+#Can be loaded further below as a specific model if already known.
 range_df <- read.csv(
   system.file("extdata", "range_df.csv", package = "arrayplanR")
 )
@@ -270,7 +272,9 @@ ggplot() +
 # Detection Range Model
 
 ```{r}
-range_model <- glm(prop_detecs ~ dist_to_receiver + Habitat,data = range_df,family = binomial(link = "logit")) #Assumes a horizontal distance between cell and receiver - which can be further adjusted (i.e., to account for different animal-receiver depths) with the `distance_approach` option (and is applied in the **compute_station_distances** function below).
+range_model <- glm(prop_detecs ~ dist_to_receiver + Habitat,data = range_df,family = binomial(link = "logit")) 
+#Assumes a horizontal distance between cell and receiver - which can be further adjusted (i.e., to account for different animal-receiver depths) 
+   #with the `distance_approach` option (and is applied in the **compute_station_distances** function below).
 ```
 
 
@@ -358,7 +362,9 @@ station_possible_iteration<-loop_hi_to_subset_list$station_possible_iteration
 ```{r}
 if(optim_metric=="total_area_m2"){optim_metric2<-"convex_total_area_m2"} else if(optim_metric=="sum_prob_cells") {optim_metric2<-"convex_sum_prob_cells"}
 loop_hi_subset<-loop_hi_to_subset %>% filter(status=="mixed_distances_iteration"|is.na(status)) %>% slice_max(order_by = .data[[optim_metric2]], n = 1, with_ties = FALSE)
-#enforcing suggested use of convex hulls of receivers (with small buffer of the minimum of h-iteration distances) as areas to optimize instead of absolute total area or sum prob cells because the latter do not necessarily provide realistic results (i.e., they tend to group receivers close together to increase area covered around them)
+#enforcing suggested use of convex hulls of receivers (with small buffer of the minimum of h-iteration distances) 
+   #as areas to optimize instead of absolute total area or sum prob cells because the latter do not necessarily provide realistic
+   #results (i.e., they tend to group receivers close together to increase area covered around them).
 
 #to access/plot other results manually
 #note duplicated receiver stations (with same performance) may occur when using changing receiver spacing option (they have not been removed for posterity)

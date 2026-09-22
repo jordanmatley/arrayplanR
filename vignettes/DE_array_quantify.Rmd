@@ -146,7 +146,10 @@ station_df <- read.csv(
 station_df_dd <- st_as_sf(station_df, coords = c("lon_nad83", "lat_nad83"),crs = 4326) #crs of input locations
 
 station_df_utm<-st_transform(station_df_dd, crs = 3857) #convert to metric crs
-#in the above code, habitat is only associated via the station file, as this is often the approach taken and more simple. See other workflows "DE_array_optimize_1overlap" and DE_array_optimize_3overlap" to associate each cell with a habitat (either the same as the receiver, i.e. receiver-centric or based on cell habitat, i.e., cell-centric). For example, running affiliated code for 'study_area_grid' from the other workflows will create a more complete dataframe with those habitat values.  
+#in the above code, habitat is only associated via the station file, as this is often the approach taken and more simple. 
+   #See other workflows "DE_array_optimize_1overlap" and DE_array_optimize_3overlap" to associate each cell with a habitat 
+   #(either the same as the receiver, i.e. receiver-centric or based on cell habitat, i.e., cell-centric). For example, running 
+   #affiliated code for 'study_area_grid' from the other workflows will create a more complete dataframe with those habitat values.  
 ```
 
 ```{r}
@@ -203,7 +206,8 @@ study_area_grid$bottom_depth_cell <- abs(
 # Detection Range Testing Data
 
 ```{r}
-#range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). Can be loaded further below as a specific model if already known.
+#range_df <- read.csv("de_range_df.csv") #be sure to include variables that affect detection range as desired (e.g., Habitat). 
+   #Can be loaded further below as a specific model if already known.
 range_df <- read.csv(
   system.file("extdata", "range_df.csv", package = "arrayplanR")
 )
@@ -226,7 +230,9 @@ ggplot() +
 A binomial GLM is fitted using range testing data.
 
 ```{r}
-range_model <- glm(prop_detecs ~ dist_to_receiver + Habitat,data = range_df,family = binomial(link = "logit")) #Assumes a horizontal distance between cell and receiver - which can be further adjusted (i.e., to account for different animal-receiver depths) with the `distance_approach` option (and is applied in the **compute_station_distances** function below).
+range_model <- glm(prop_detecs ~ dist_to_receiver + Habitat,data = range_df,family = binomial(link = "logit")) 
+#Assumes a horizontal distance between cell and receiver - which can be further adjusted (i.e., to account for different animal-receiver depths) 
+   #with the `distance_approach` option (and is applied in the **compute_station_distances** function below).
 ```
 
 ## Plot Detection Range Curves
@@ -257,7 +263,9 @@ dist_df <- compute_station_distances(
   range_model) #calculates distance of every grid from each designated receiver location
 
 head(dist_df)
-##Habitat is locked to the receiver station (as this will be most common approach used - referred as **receiver-centric** detection range). It can be adjusted to be relative to the habitat of grids (i.e., **cell-centric** detection range), simply assign **Habitat** relative to `cell_id` (by merging an existing file or see optimize workflows for example code) and recalculate `prop_detecs`: 
+##Habitat is locked to the receiver station (as this will be most common approach used - referred as **receiver-centric** detection range). 
+   #It can be adjusted to be relative to the habitat of grids (i.e., **cell-centric** detection range), simply assign **Habitat** relative 
+   #to `cell_id` (by merging an existing file or see optimize workflows for example code) and recalculate `prop_detecs`: 
 #dist_df$prop_detecs<-predict(range_model, newdata = dist_df, type="response") 
 #dist_df$prop_detecs <- ifelse(dist_df$landinway, 0, dist_df$prop_detecs)
 #note that `distance_approach` parameters have already been accounted for and do not need to be applied again.
