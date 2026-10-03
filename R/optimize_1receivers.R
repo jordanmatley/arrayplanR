@@ -71,6 +71,10 @@ optimize_1receivers <- function(dist_df,
   options(datatable.verbose = FALSE)
   options(datatable.print.progress = FALSE)
 
+  #precompute for later (since static)
+  #m2_possible_val = sum(as.numeric(st_area(study_area_grid[study_area_grid$Description == "study_area", ]))) #study area only
+  m2_possible_val = sum(as.numeric(st_area(study_area_grid))) #study area + spillover
+
   if (!is.null(starting_loc)){
     # Project starting location to study area CRS
     starting_loc_pre <- st_sfc(st_point(starting_loc), crs = 4326)
@@ -119,17 +123,24 @@ optimize_1receivers <- function(dist_df,
     unique_stations_loop <- dt_unique[, .SD[sample(.N, hab_nrec_alloc[.BY$Habitat])], by = Habitat]$station
 
   } else if (optim_method == "min_distance") {
-    find_recs <- st_sf(dt_unique[0, ])
-    while (nrow(find_recs) < nrecs && nrow(dt_unique) > 0) {
-      find_it <- dt_unique[sample(.N, 1)]
-      find_it <- st_as_sf(find_it, sf_column_name = "station_loc", crs = st_crs(find_recs))
-      find_recs <- rbind(find_recs, find_it)
-      dists <- as.numeric(st_distance(find_it$station_loc, dt_unique$station_loc))
-      locs_possible <- dt_unique[dists >= min_rec_distance, ]
-    }
-    unique_stations_loop <- unique(find_recs$station)
+    select_stations <- function(dt_unique, nrecs, min_distance, n_attempts = 1000) {
+      dmat <- units::drop_units(sf::st_distance(dt_unique$station_loc))
+      for (attempt in seq_len(n_attempts)) {
+        selected <- integer(0)
+        for (i in sample.int(nrow(dt_unique))) {
+          if (length(selected) == 0 ||
+              all(dmat[i, selected] >= min_distance)) {
+            selected <- c(selected, i)
+          }
+          if (length(selected) == nrecs) {
+            return(dt_unique$station[selected])
+          }}}
+      stop(
+        "Unable to generate a starting configuration of ", nrecs,
+        " stations with a minimum separation of ", min_distance, " m. Likely min_rec_distance too large for the iteration.")}
+    unique_stations_loop<-select_stations(dt_unique, nrecs, min_distance)
     if (length(unique_stations_loop) != nrecs)
-      stop("Desired receiver number not met - likely min_rec_distance too large")
+      stop("Desired receiver number not met – likely min_rec_distance too large for the iteration")
 
   } else {
     unique_stations_loop <- sample(stations_all, nrecs)
@@ -207,7 +218,7 @@ optimize_1receivers <- function(dist_df,
 
         # Fast hashed key based on sorted station vector
         stations_key <- digest(
-          paste0(new_stations, collapse = ","),
+          paste0(sort(new_stations), collapse = ","),
           algo = "xxhash64",
           serialize = FALSE
         )
@@ -257,9 +268,17 @@ optimize_1receivers <- function(dist_df,
                                   mean_prob = mean(prob_cell_all),
                                   sum_prob_cells = sum(prob_cell_all),
                                   total_area_m2 = .N * cellsize^2,
-                                  m2_possible = sum(as.numeric(
-                                    st_area(study_area_grid[study_area_grid$Description == "study_area", ])
-                                  )))]
+                                  m2_possible = m2_possible_val
+                                )]
+
+        #evenness calculation
+        ncells_study_area <- as.data.table(st_drop_geometry(study_area_grid))
+        ncells_study_area <- ncells_study_area[Description == "study_area",.(cell_id)] #if restricting to study area only - advised
+        #ncells_study_area <- ncells_study_area[, .(cell_id)] #if including spillover area as well
+        ncells_study_area <- merge(ncells_study_area,dt_prob,by = "cell_id",all.x = TRUE,sort = FALSE)
+        ncells_study_area[is.na(prob_cell_all), prob_cell_all := 0]
+        cv_prob <- (sd(ncells_study_area$prob_cell_all, na.rm = TRUE) /  mean(ncells_study_area$prob_cell_all, na.rm = TRUE))*-1
+        dt_prob_summ[, evenness := cv_prob]
 
         if (nrow(dt_prob_summ) == 0) next
 
