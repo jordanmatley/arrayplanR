@@ -530,13 +530,13 @@ optimize_1receivers <- function(dist_df,
     unique_stations_loop <- dt_unique[, .SD[sample(.N, hab_nrec_alloc[.BY$Habitat])], by = Habitat]$station
 
   } else if (optim_method == "min_distance") {
-    select_stations <- function(dt_unique, nrecs, min_distance, n_attempts = 1000) {
+    select_stations <- function(dt_unique, nrecs, min_rec_distance, n_attempts = 1000) {
       dmat <- units::drop_units(sf::st_distance(dt_unique$station_loc))
       for (attempt in seq_len(n_attempts)) {
         selected <- integer(0)
         for (i in sample.int(nrow(dt_unique))) {
           if (length(selected) == 0 ||
-              all(dmat[i, selected] >= min_distance)) {
+              all(dmat[i, selected] >= min_rec_distance)) {
             selected <- c(selected, i)
           }
           if (length(selected) == nrecs) {
@@ -546,10 +546,10 @@ optimize_1receivers <- function(dist_df,
       }
       stop(
         "Unable to generate a starting configuration of ", nrecs,
-        " stations with a minimum separation of ", min_distance, " m. Likely min_rec_distance too large for the iteration."
+        " stations with a minimum separation of ", min_rec_distance, " m. Likely min_rec_distance too large for the iteration."
       )
     }
-    unique_stations_loop<-select_stations(dt_unique, nrecs, min_distance)
+    unique_stations_loop<-select_stations(dt_unique, nrecs, min_rec_distance)
     if (length(unique_stations_loop) != nrecs)
       stop("Desired receiver number not met – likely min_rec_distance too large for the iteration")
 
