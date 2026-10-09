@@ -326,6 +326,12 @@ optimize_3receivers <- function(study_area_grid,
         #Keep only distance-ranked stations that also have a clear line of sight
         nearest_idx <- which( dist_ranks <= (nrecs - 1) & landinway1==FALSE)
 
+        #prioritize land blocks first but then use next-nearest if nrecs has not been met
+        if(length(nearest_idx!=nrecs)){
+          needed_stations=nrecs-length(nearest_idx!=nrecs)-1 #1 because need to account for focal station
+          nearest_idx_land <- which(landinway1 == TRUE)[order(dist_ranks[landinway1 == TRUE])][seq_len(min(needed_stations, sum(landinway1 == TRUE)))]
+          nearest_idx<-(c(nearest_idx,nearest_idx_land))
+        }
 
         # If all blocked, skip this iteration
         if (length(nearest_idx) == 0) next
@@ -352,8 +358,9 @@ optimize_3receivers <- function(study_area_grid,
         dt_prop_list[is.na(prob_cell_all), prob_cell_all := 0]
         dt_prob <- dt_prop_list[, .(cell_id, prob_cell_all)]
 
-        #get convex hull of receivers
-        rec_convexhull <- st_convex_hull(st_union(near_stations_i))
+        #use a convex or concave hull for receivers to maximize spacing of receivers
+        #rec_convexhull <- st_convex_hull(st_union(near_stations_i))
+        rec_convexhull <- st_concave_hull(st_union(near_stations_i),ratio = 0.1,allow_holes = FALSE)
         rec_convexhull_buf <- st_buffer(rec_convexhull, dist = min(rec_dist_iterations))
         # Get only the grid cells in the convex hull
         cells_in_hull <- dt_unique_grid[st_intersects(dt_unique_grid, rec_convexhull_buf, sparse = FALSE), ]
