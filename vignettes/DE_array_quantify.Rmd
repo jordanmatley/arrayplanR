@@ -24,6 +24,7 @@ library(arrayplanR)
 This workflow evaluates the performance of an acoustic receiver array using detection range testing data and predefined receiver locations.
 
 The optimisation seeks to maximise areas based on either:
+
 - Total **effective sum of probabilities** above a threshold, or  
 - Total **effective area covered** above a threshold.
 

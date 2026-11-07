@@ -28,6 +28,7 @@ This workflow optimizes acoustic receiver array configurations when receiver loc
 For broad-scale receiver arrays not requiring multiple overlapping receivers, use the `DE_array_optimize_1overlap` workflow.
 
 The optimisation seeks to maximise areas based on either:
+
 - Total **effective sum of probabilities** above a threshold, or  
 - Total **effective area covered** above a threshold.
 

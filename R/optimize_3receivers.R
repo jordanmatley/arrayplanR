@@ -154,7 +154,9 @@ optimize_3receivers <- function(study_area_grid,
         hex_locs <- hex_locs %>% st_intersection(study_area2)
         hex_locs<-hex_locs %>% st_intersection(study_area) #in case additional points still exist
         hex_locs <- hex_locs %>% select(geometry)
-        hex_locs$hex_id <- seq_len(nrow(hex_locs))
+        hex_locs <- hex_locs %>%
+          arrange(desc(st_coordinates(geometry)[,2]),st_coordinates(geometry)[,1]) %>%
+          mutate(hex_id = row_number())
 
         #associate station ID
         distances <- st_distance(hex_locs$geometry, starting_loc_proj)
@@ -174,7 +176,9 @@ optimize_3receivers <- function(study_area_grid,
         hex_locs<-hex_locs %>%
           st_intersection(study_area) #in case additional points still exist
         hex_locs <- st_sf(geometry = hex_locs) #%>% rename(hex_geometry=geometry)
-        hex_locs$hex_id <- seq_len(nrow(hex_locs))
+        hex_locs <- hex_locs %>%
+          arrange(desc(st_coordinates(geometry)[,2]),st_coordinates(geometry)[,1]) %>%
+          mutate(hex_id = row_number())
       }
 
       hex_stations_all <- unique(hex_locs$hex_id)
@@ -288,6 +292,9 @@ optimize_3receivers <- function(study_area_grid,
 
       setkey(dt, station, cell_id)
 
+      # Used station combinations to avoid duplicates
+      used_keys3 <- new.env(parent = emptyenv())
+
       #just taking one receiver at a time, then selecting nearest n receivers to do the calcs
       loop_i_blank <- list()
       Hab_loop_i_blank<-list()
@@ -339,6 +346,16 @@ optimize_3receivers <- function(study_area_grid,
         nearest_points <- dt_unique_sf[-i, ][nearest_idx, ]
         near_stations_i <- rbind(dt_unique_sf[i, ], nearest_points)
         new_stations <- unique(near_stations_i$station)
+
+        # Fast hashed key based on sorted station vector
+        stations_key3 <- digest(
+          paste0(sort(new_stations), collapse = ","),
+          algo = "xxhash64",
+          serialize = FALSE
+        )
+        if (exists(stations_key3, envir = used_keys3, inherits = FALSE)) next
+        used_keys3[[stations_key3]] <- TRUE
+
 
         #Habitat constraint
         if (optim_method == "habitat_specific") {
